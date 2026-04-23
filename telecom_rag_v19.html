@@ -1,0 +1,2172 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>S省対応用回答作成ツール（仮）</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;600;700&family=Zen+Kaku+Gothic+New:wght@300;400;700&display=swap" rel="stylesheet">
+<style>
+  /* ===== CSS Variables ===== */
+  :root {
+    --ink:      #1a1714;
+    --paper:    #f5f0e8;
+    --cream:    #ede7d9;
+    --gold:     #b8963e;
+    --gold-lt:  #d4a84b;
+    --red:      #8b2020;
+    --green:    #1e5c3a;
+    --amber:    #b36b00;
+    --muted:    #6b6258;
+    --border:   #c9bfad;
+    --shadow:   rgba(26,23,20,0.12);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Zen Kaku Gothic New', sans-serif;
+    background: var(--paper);
+    color: var(--ink);
+    min-height: 100vh;
+    position: relative;
+  }
+
+  /* 和紙テクスチャ風背景 */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      radial-gradient(ellipse at 20% 20%, rgba(184,150,62,0.06) 0%, transparent 50%),
+      radial-gradient(ellipse at 80% 80%, rgba(139,32,32,0.04) 0%, transparent 50%),
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)' opacity='0.025'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .wrapper {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 0 1.5rem 4rem;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ===== Header ===== */
+  header {
+    padding: 2.8rem 0 2rem;
+    border-bottom: 2px solid var(--gold);
+    margin-bottom: 2rem;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+
+  .header-left .eyebrow {
+    font-size: 0.7rem;
+    letter-spacing: 0.25em;
+    color: var(--gold);
+    text-transform: uppercase;
+    margin-bottom: 0.5rem;
+  }
+
+  .header-left h1 {
+    font-family: 'Shippori Mincho', serif;
+    font-size: clamp(1.4rem, 3vw, 2rem);
+    font-weight: 700;
+    line-height: 1.3;
+    letter-spacing: 0.05em;
+  }
+
+  .header-left h1 span {
+    color: var(--gold);
+  }
+
+  .header-left .subtitle {
+    margin-top: 0.4rem;
+    font-size: 0.8rem;
+    color: var(--muted);
+    letter-spacing: 0.05em;
+  }
+
+  .badge-box {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    align-items: flex-end;
+    flex-shrink: 0;
+  }
+
+  .badge {
+    font-size: 0.72rem;
+    padding: 0.25rem 0.75rem;
+    border-radius: 2px;
+    letter-spacing: 0.08em;
+    font-weight: 700;
+  }
+  .badge-gold  { background: var(--gold);  color: #fff; }
+  .badge-gray  { background: var(--cream); color: var(--muted); border: 1px solid var(--border); }
+
+  /* ===== API Key Section ===== */
+  .api-section {
+    background: var(--cream);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--gold);
+    border-radius: 4px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 1.8rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .api-section label {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--muted);
+    letter-spacing: 0.08em;
+    white-space: nowrap;
+  }
+
+  .api-section input {
+    flex: 1;
+    min-width: 240px;
+    padding: 0.45rem 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    background: var(--paper);
+    font-family: 'Courier New', monospace;
+    font-size: 0.82rem;
+    color: var(--ink);
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .api-section input:focus { border-color: var(--gold); }
+
+  .btn-save {
+    padding: 0.45rem 1.1rem;
+    background: var(--gold);
+    color: #fff;
+    border: none;
+    border-radius: 3px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    cursor: pointer;
+    letter-spacing: 0.05em;
+    transition: background 0.2s;
+    white-space: nowrap;
+  }
+  .btn-save:hover { background: var(--gold-lt); }
+
+  .api-status {
+    font-size: 0.75rem;
+    color: var(--green);
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .api-status.none { color: var(--red); }
+
+  /* ===== Search Box ===== */
+  .search-area {
+    margin-bottom: 1.5rem;
+  }
+
+  .search-label {
+    font-family: 'Shippori Mincho', serif;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--muted);
+    letter-spacing: 0.12em;
+    margin-bottom: 0.6rem;
+    display: block;
+  }
+
+  .search-row {
+    display: flex;
+    gap: 0.6rem;
+  }
+
+  #questionInput {
+    flex: 1;
+    padding: 0.75rem 1rem;
+    border: 1.5px solid var(--border);
+    border-radius: 4px;
+    background: #fff;
+    font-family: 'Zen Kaku Gothic New', sans-serif;
+    font-size: 1rem;
+    color: var(--ink);
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  #questionInput:focus {
+    border-color: var(--gold);
+    box-shadow: 0 0 0 3px rgba(184,150,62,0.12);
+  }
+  #questionInput::placeholder { color: var(--border); }
+
+  .btn-search {
+    padding: 0.75rem 1.6rem;
+    background: var(--ink);
+    color: var(--paper);
+    border: none;
+    border-radius: 4px;
+    font-family: 'Shippori Mincho', serif;
+    font-size: 0.95rem;
+    font-weight: 700;
+    cursor: pointer;
+    letter-spacing: 0.08em;
+    transition: background 0.2s, transform 0.1s;
+    white-space: nowrap;
+  }
+  .btn-search:hover  { background: #2d2926; }
+  .btn-search:active { transform: scale(0.98); }
+  .btn-search:disabled { background: var(--border); cursor: not-allowed; }
+
+  /* ===== Samples ===== */
+  .samples {
+    margin-bottom: 2rem;
+  }
+  .samples-label {
+    font-size: 0.72rem;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    margin-bottom: 0.5rem;
+  }
+  .sample-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+  .chip {
+    padding: 0.3rem 0.8rem;
+    background: var(--cream);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    font-size: 0.78rem;
+    cursor: pointer;
+    color: var(--ink);
+    transition: background 0.15s, border-color 0.15s;
+    letter-spacing: 0.03em;
+  }
+  .chip:hover { background: #e0d8c8; border-color: var(--gold); }
+
+  /* ===== Loading ===== */
+  .loading {
+    display: none;
+    align-items: center;
+    gap: 0.8rem;
+    padding: 1.5rem;
+    color: var(--muted);
+    font-size: 0.88rem;
+  }
+  .loading.show { display: flex; }
+
+  .spinner {
+    width: 20px; height: 20px;
+    border: 2px solid var(--border);
+    border-top-color: var(--gold);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    flex-shrink: 0;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ===== Result ===== */
+  .result-box {
+    display: none;
+    border-radius: 6px;
+    overflow: hidden;
+    margin-bottom: 2rem;
+    box-shadow: 0 4px 20px var(--shadow);
+    animation: fadeUp 0.4s ease;
+  }
+  .result-box.show { display: block; }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .result-header {
+    padding: 0.85rem 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 0.82rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+  }
+
+  /* ===== 回答ログエリア ===== */
+  .log-area { margin-bottom: 2rem; }
+
+  .log-area-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.8rem;
+  }
+  .log-count { font-size: 0.75rem; color: var(--muted); letter-spacing: 0.05em; }
+  .btn-clear-all {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 0.25rem 0.7rem;
+    font-size: 0.73rem;
+    color: var(--muted);
+    cursor: pointer;
+    letter-spacing: 0.05em;
+    transition: all 0.15s;
+  }
+  .btn-clear-all:hover { border-color: var(--red); color: var(--red); }
+
+  /* ===== 回答カード ===== */
+  .answer-card {
+    border-radius: 6px;
+    overflow: hidden;
+    margin-bottom: 1.4rem;
+    box-shadow: 0 3px 16px var(--shadow);
+    animation: fadeUp 0.35s ease;
+  }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .card-header {
+    padding: 0.7rem 1.1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    user-select: none;
+  }
+  .card-header .c-icon  { font-size: 1.1rem; flex-shrink: 0; }
+  .card-header .c-label { flex: 1; }
+  .card-header .c-time  { font-size: 0.7rem; font-weight: 400; opacity: 0.75; white-space: nowrap; }
+  .card-header .c-score {
+    font-size: 0.7rem; font-weight: 400;
+    background: rgba(255,255,255,0.22);
+    padding: 0.12rem 0.5rem;
+    border-radius: 10px; white-space: nowrap;
+  }
+  .pattern-a .card-header { background: var(--green); color: #fff; }
+  .pattern-b .card-header { background: var(--amber); color: #fff; }
+  .pattern-c .card-header { background: var(--red);   color: #fff; }
+
+  .card-question {
+    background: var(--cream);
+    border-left: 4px solid var(--gold);
+    border-right: 1px solid var(--border);
+    padding: 0.55rem 1.1rem;
+    font-size: 0.83rem;
+    color: var(--ink);
+    font-weight: 700;
+  }
+
+  .card-body {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-top: none;
+    padding: 1.1rem 1.4rem 1rem;
+  }
+
+  .answer-editable {
+    min-height: 60px;
+    white-space: pre-wrap;
+    word-break: break-word;
+    line-height: 1.85;
+    font-size: 0.93rem;
+    font-family: 'Zen Kaku Gothic New', sans-serif;
+    color: var(--ink);
+    outline: none;
+    border-radius: 3px;
+    padding: 0.45rem 0.6rem;
+    margin: -0.45rem -0.6rem;
+    transition: background 0.15s, box-shadow 0.15s;
+    cursor: text;
+  }
+  .answer-editable:hover:not(:focus) { background: #fafaf5; }
+  .answer-editable:focus {
+    background: #fffef8;
+    box-shadow: inset 0 0 0 2px rgba(184,150,62,0.3);
+  }
+
+  .edit-hint {
+    font-size: 0.7rem;
+    color: var(--muted);
+    margin-top: 0.55rem;
+    opacity: 0.65;
+    transition: opacity 0.2s;
+  }
+
+  /* ===== 引用条文ボックス ===== */
+  .citation-area {
+    margin-top: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+  }
+
+  .citation-box {
+    border-left: 3px solid var(--gold);
+    background: #fffdf5;
+    border-radius: 0 4px 4px 0;
+    overflow: hidden;
+    border: 1px solid #e8dfc8;
+    border-left: 3px solid var(--gold);
+  }
+
+  .citation-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.45rem 0.9rem;
+    background: linear-gradient(90deg, rgba(184,150,62,0.1) 0%, transparent 100%);
+    cursor: pointer;
+    user-select: none;
+    border-bottom: 1px solid #e8dfc8;
+  }
+  .citation-header:hover { background: linear-gradient(90deg, rgba(184,150,62,0.18) 0%, transparent 100%); }
+
+  .citation-label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--gold);
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+  }
+
+  .citation-title {
+    font-size: 0.72rem;
+    color: var(--muted);
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .citation-toggle {
+    font-size: 0.65rem;
+    color: var(--muted);
+    white-space: nowrap;
+    transition: transform 0.2s;
+  }
+  .citation-box.open .citation-toggle { transform: rotate(180deg); }
+
+  .citation-text {
+    font-size: 0.82rem;
+    line-height: 1.8;
+    color: #3a3530;
+    padding: 0.7rem 1rem;
+    font-family: 'Shippori Mincho', serif;
+    white-space: pre-wrap;
+    word-break: break-all;
+    display: none;
+  }
+  .citation-box.open .citation-text { display: block; }
+
+  .citation-preview {
+    font-size: 0.8rem;
+    color: #5a5248;
+    padding: 0.5rem 1rem;
+    font-family: 'Shippori Mincho', serif;
+    line-height: 1.7;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .citation-box.open .citation-preview { display: none; }
+
+  /* ===== テキストセグメント（編集可能） ===== */
+  .segments-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .text-segment {
+    min-height: 1.2em;
+    white-space: pre-wrap;
+    word-break: break-word;
+    line-height: 1.85;
+    font-size: 0.93rem;
+    font-family: 'Zen Kaku Gothic New', sans-serif;
+    color: var(--ink);
+    outline: none;
+    border-radius: 3px;
+    padding: 0.3rem 0.5rem;
+    margin: 0 -0.5rem;
+    transition: background 0.15s, box-shadow 0.15s;
+    cursor: text;
+  }
+  .text-segment:hover:not(:focus) { background: #fafaf5; }
+  .text-segment:focus {
+    background: #fffef8;
+    box-shadow: inset 0 0 0 2px rgba(184,150,62,0.28);
+  }
+  .text-segment strong { font-weight: 700; }
+  .text-segment .md-bullet {
+    display: block;
+    padding-left: 0.8em;
+    text-indent: -0.6em;
+  }
+
+  /* インライン条文ボックス（回答中に埋め込まれる） */
+  .inline-citation {
+    margin: 0.6rem 0;
+  }
+
+  /* ===== Q&Aヒットバッジ（ヘッダー内） ===== */
+  .c-qa-badge {
+    font-size: 0.68rem;
+    font-weight: 700;
+    background: rgba(255,255,255,0.28);
+    border: 1px solid rgba(255,255,255,0.45);
+    color: #fff;
+    padding: 0.1rem 0.55rem;
+    border-radius: 10px;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  /* ===== 参照Q&Aアコーディオン ===== */
+  .qa-ref-area {
+    margin-top: 0.2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  .qa-ref-label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--muted);
+    letter-spacing: 0.06em;
+    margin-bottom: 0.2rem;
+  }
+
+  .qa-ref-card {
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--gold);
+    border-radius: 0 4px 4px 0;
+    background: var(--cream);
+    overflow: hidden;
+  }
+
+  .qa-ref-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.45rem 0.85rem;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.15s;
+  }
+  .qa-ref-header:hover { background: #e4dbc8; }
+
+  .qa-ref-id {
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: var(--gold);
+    background: rgba(184,150,62,0.12);
+    padding: 0.1rem 0.45rem;
+    border-radius: 3px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .qa-ref-q {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--ink);
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .qa-ref-toggle {
+    font-size: 0.65rem;
+    color: var(--muted);
+    flex-shrink: 0;
+    transition: transform 0.2s;
+  }
+  .qa-ref-card.open .qa-ref-toggle { transform: rotate(180deg); }
+
+  .qa-ref-body {
+    display: none;
+    padding: 0.7rem 1rem 0.8rem;
+    border-top: 1px solid var(--border);
+    background: #fff;
+  }
+  .qa-ref-card.open .qa-ref-body { display: block; }
+
+  .qa-ref-answer {
+    font-size: 0.82rem;
+    line-height: 1.8;
+    color: var(--ink);
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  .qa-ref-articles {
+    margin-top: 0.55rem;
+    font-size: 0.72rem;
+    color: var(--muted);
+  }
+  .qa-ref-articles strong { color: var(--gold); }
+
+  .card-meta {
+    margin-top: 0.85rem;
+    padding-top: 0.75rem;
+    border-top: 1px dashed var(--border);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.75rem;
+    color: var(--muted);
+  }
+  .card-meta strong { color: var(--ink); }
+  .meta-item strong { color: var(--ink); }
+
+  .card-actions {
+    display: flex;
+    gap: 0.35rem;
+    margin-left: auto;
+    flex-shrink: 0;
+  }
+  .btn-card {
+    padding: 0.2rem 0.6rem;
+    border-radius: 3px;
+    font-size: 0.71rem;
+    border: 1px solid var(--border);
+    background: var(--cream);
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .btn-card:hover      { background: #e0d8c8; color: var(--ink); border-color: var(--gold); }
+  .btn-card.del:hover  { background: #fde8e8; color: var(--red); border-color: var(--red); }
+  .btn-card.copied     { background: var(--green); color: #fff; border-color: var(--green); }
+
+  /* ===== Hit Cards (debug) ===== */
+  .hits-section {
+    margin-bottom: 2rem;
+  }
+  .hits-toggle {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 0.35rem 0.8rem;
+    font-size: 0.75rem;
+    color: var(--muted);
+    cursor: pointer;
+    letter-spacing: 0.06em;
+    margin-bottom: 0.7rem;
+    transition: border-color 0.15s;
+  }
+  .hits-toggle:hover { border-color: var(--gold); color: var(--gold); }
+
+  .hits-list { display: none; }
+  .hits-list.open { display: block; }
+
+  .hit-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.8rem;
+    padding: 0.75rem 1rem;
+    background: var(--cream);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    margin-bottom: 0.5rem;
+    font-size: 0.82rem;
+  }
+
+  .hit-rank {
+    width: 24px; height: 24px;
+    background: var(--gold);
+    color: #fff;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+    font-weight: 700;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  .hit-q { font-weight: 700; margin-bottom: 0.2rem; }
+  .hit-meta { color: var(--muted); font-size: 0.75rem; }
+
+  .score-bar-wrap {
+    margin-top: 0.25rem;
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    width: 100px;
+  }
+  .score-bar {
+    height: 100%;
+    border-radius: 2px;
+    background: var(--gold);
+    transition: width 0.5s ease;
+  }
+
+  /* ===== ログエリアタイトル ===== */
+  .section-title {
+    font-family: 'Shippori Mincho', serif;
+    font-size: 0.85rem;
+    color: var(--muted);
+    letter-spacing: 0.15em;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 0.4rem;
+    margin-bottom: 1rem;
+  }
+
+  /* ===== Footer ===== */
+  footer {
+    margin-top: 3rem;
+    padding-top: 1.2rem;
+    border-top: 1px solid var(--border);
+    font-size: 0.73rem;
+    color: var(--muted);
+    line-height: 1.8;
+  }
+  footer a { color: var(--gold); text-decoration: none; }
+  footer a:hover { text-decoration: underline; }
+
+  /* ===== Responsive ===== */
+  @media (max-width: 600px) {
+    header { flex-direction: column; align-items: flex-start; }
+    .badge-box { flex-direction: row; align-items: center; }
+    .search-row { flex-direction: column; }
+    .btn-search { width: 100%; }
+  }
+</style>
+</head>
+<body>
+<div class="wrapper">
+
+  <!-- Header -->
+  <header>
+    <div class="header-left">
+      <div class="eyebrow">RAG · Knowledge Base System　|　電気通信事業法</div>
+      <h1>S省対応用<br><span>回答作成ツール（仮）</span></h1>
+      <div class="subtitle">電気通信事業法 ／ Q&A 20問 ＋ 法令原文 94条文</div>
+    </div>
+    <div class="badge-box">
+      <span class="badge badge-gold">Claude Sonnet</span>
+      <span class="badge badge-gray">Q&A 20問 ＋ 法令原文 25条</span>
+    </div>
+  </header>
+
+  <!-- API Key（PROXY_URL設定時は自動非表示） -->
+  <div class="api-section" id="apiSection">
+    <label>🔑 ANTHROPIC API KEY</label>
+    <input type="password" id="apiKeyInput" placeholder="sk-ant-api03-..." autocomplete="off">
+    <button class="btn-save" onclick="saveApiKey()">保存</button>
+    <span class="api-status" id="apiStatus">未設定</span>
+  </div>
+
+  <!-- Search -->
+  <div class="search-area">
+    <span class="search-label">▍ 質　問</span>
+    <div class="search-row">
+      <input type="text" id="questionInput"
+             placeholder="例：通信の秘密が侵害された場合の罰則と対処方法は？"
+             onkeydown="if(event.key==='Enter')search()">
+      <button class="btn-search" id="searchBtn" onclick="search()">送　信</button>
+    </div>
+  </div>
+
+  <!-- Samples -->
+  <div class="samples">
+    <div class="samples-label">▸ 質問例</div>
+    <div class="sample-chips" id="sampleChips"></div>
+  </div>
+
+  <!-- Loading -->
+  <div class="loading" id="loading">
+    <div class="spinner"></div>
+    <span>参照情報を検索し、回答を生成しています…</span>
+  </div>
+
+  <!-- Hits Debug -->
+  <div class="hits-section" id="hitsSection" style="display:none">
+    <button class="hits-toggle" onclick="toggleHits()">🔍 検索詳細を表示 / 非表示</button>
+    <div class="hits-list" id="hitsList"></div>
+  </div>
+
+  <!-- 回答ログエリア（編集可能・履歴蓄積） -->
+  <div class="log-area" id="logArea" style="display:none">
+    <div class="log-area-header">
+      <span class="section-title" style="margin:0;border:none;padding:0">▍ お問い合わせ・回答履歴</span>
+      <span class="log-count" id="logCount"></span>
+      <button class="btn-clear-all" onclick="clearAllLogs()">🗑 すべて削除</button>
+    </div>
+    <div id="logList"></div>
+  </div>
+
+  <!-- Footer -->
+  <footer>
+    ⚠️ 本サービスの回答は法的アドバイスではございません。具体的な判断は法令原文・専門家にご確認ください。<br>
+    📖 <a href="https://laws.e-gov.go.jp/law/359AC0000000086/" target="_blank">e-Gov 電気通信事業法</a>
+    　｜　総務省 <a href="https://www.soumu.go.jp/main_sosiki/joho_tsusin/top.html" target="_blank">情報通信政策</a>
+  </footer>
+
+</div>
+
+<script>
+// ============================================================
+// 法令原文データ（電気通信事業法 主要条文）
+// 出典: https://hourei.net/law/359AC0000000086
+// ============================================================
+const LAW_ARTICLES = [
+  {
+    id:"L01", chapter:"第1章 総則", article:"第1条", title:"目的",
+    text:"この法律は、電気通信事業の公共性にかんがみ、その運営を適正かつ合理的なものとするとともに、その公正な競争を促進することにより、電気通信役務の円滑な提供を確保するとともにその利用者の利益を保護し、もつて電気通信の健全な発達及び国民の利便の確保を図り、公共の福祉を増進することを目的とする。",
+    keywords:["目的","公共性","公正競争","利用者保護","国民の利便","公共の福祉","健全な発達"]
+  },
+  {
+    id:"L02", chapter:"第1章 総則", article:"第2条", title:"定義",
+    text:"この法律において、次の各号に掲げる用語の意義は、当該各号に定めるところによる。一 電気通信 有線、無線その他の電磁的方式により、符号、音響又は影像を送り、伝え、又は受けることをいう。二 電気通信設備 電気通信を行うための機械、器具、線路その他の電気的設備をいう。三 電気通信役務 電気通信設備を用いて他人の通信を媒介し、その他電気通信設備を他人の通信の用に供することをいう。四 電気通信事業 電気通信役務を他人の需要に応ずるために提供する事業（放送法第118条第1項に規定する放送局設備供給役務に係る事業を除く。）をいう。五 電気通信事業者 電気通信事業を営むことについて、第9条の登録を受けた者及び第16条第1項の規定による届出をした者をいう。六 電気通信業務 電気通信事業者の行う電気通信役務の提供の業務をいう。",
+    keywords:["定義","電気通信","電気通信設備","電気通信役務","電気通信事業","電気通信事業者","電気通信業務","有線","無線","媒介"]
+  },
+  {
+    id:"L03", chapter:"第1章 総則", article:"第3条", title:"検閲の禁止",
+    text:"電気通信事業者の取扱中に係る通信は、検閲してはならない。",
+    keywords:["検閲","禁止","取扱中","通信","検閲の禁止"]
+  },
+  {
+    id:"L04", chapter:"第1章 総則", article:"第4条", title:"秘密の保護",
+    text:"電気通信事業者の取扱中に係る通信の秘密は、侵してはならない。２ 電気通信事業に従事する者は、在職中電気通信事業者の取扱中に係る通信に関して知り得た他人の秘密を守らなければならない。その職を退いた後においても、同様とする。",
+    keywords:["秘密の保護","通信の秘密","侵害","従事者","在職中","退職後","守秘義務","プライバシー"]
+  },
+  {
+    id:"L05", chapter:"第1章 総則", article:"第5条", title:"電気通信事業に関する条約",
+    text:"電気通信事業に関し条約に別段の定めがあるときは、その規定による。",
+    keywords:["条約","国際","優先","国内法","条約優先"]
+  },
+  {
+    id:"L06", chapter:"第2章 第1節 総則", article:"第6条", title:"利用の公平",
+    text:"電気通信事業者は、電気通信役務の提供について、不当な差別的取扱いをしてはならない。",
+    keywords:["利用の公平","差別","不当","差別的取扱い","公平","平等"]
+  },
+  {
+    id:"L07", chapter:"第2章 第1節 総則", article:"第7条", title:"基礎的電気通信役務の提供",
+    text:"基礎的電気通信役務（国民生活に不可欠であるためあまねく日本全国における提供が確保されるべきものとして総務省令で定める電気通信役務をいう。以下同じ。）を提供する電気通信事業者は、その適切、公平かつ安定的な提供に努めなければならない。",
+    keywords:["基礎的電気通信役務","ユニバーサルサービス","全国","提供義務","適切","公平","安定","国民生活"]
+  },
+  {
+    id:"L08", chapter:"第2章 第1節 総則", article:"第8条", title:"重要通信の確保",
+    text:"電気通信事業者は、天災、事変その他の非常事態が発生し、又は発生するおそれがあるときは、災害の予防若しくは救援、交通、通信若しくは電力の供給の確保又は秩序の維持のために必要な事項を内容とする通信を優先的に取り扱わなければならない。公共の利益のため緊急に行うことを要するその他の通信であつて総務省令で定めるものについても、同様とする。２ 前項の場合において、電気通信事業者は、必要があるときは、総務省令で定める基準に従い、電気通信業務の一部を停止することができる。３ 電気通信事業者は、第1項に規定する通信（以下「重要通信」という。）の円滑な実施を他の電気通信事業者と相互に連携を図りつつ確保するため、他の電気通信事業者と電気通信設備を相互に接続する場合には、総務省令で定めるところにより、重要通信の優先的な取扱いについて取り決めることその他の必要な措置を講じなければならない。",
+    keywords:["重要通信","非常事態","天災","優先","災害","業務停止","緊急","震災","台風","救援"]
+  },
+  {
+    id:"L09", chapter:"第2章 第2節 登録等", article:"第9条", title:"電気通信事業の登録",
+    text:"電気通信事業を営もうとする者は、総務大臣の登録を受けなければならない。ただし、次に掲げる場合は、この限りでない。一 その者の設置する電気通信回線設備の規模及び当該電気通信回線設備を設置する区域の範囲が総務省令で定める基準を超えない場合。二 その者の設置する電気通信回線設備が電波法第7条第2項第6号に規定する基幹放送に加えて基幹放送以外の無線通信の送信をする無線局の無線設備である場合。",
+    keywords:["登録","事業の登録","総務大臣","電気通信回線設備","基準","新規参入","免許","申請"]
+  },
+  {
+    id:"L10", chapter:"第2章 第2節 登録等", article:"第10条", title:"登録申請",
+    text:"前条の登録を受けようとする者は、総務省令で定めるところにより、次の事項を記載した申請書を総務大臣に提出しなければならない。一 氏名又は名称及び住所並びに法人にあつては、その代表者の氏名。二 外国法人等にあつては、国内における代表者又は国内における代理人の氏名又は名称及び国内の住所。三 業務区域。四 電気通信設備の概要。五 その他総務省令で定める事項。",
+    keywords:["登録申請","申請書","氏名","住所","業務区域","電気通信設備の概要","提出","申請手続き"]
+  },
+  {
+    id:"L11", chapter:"第2章 第2節 登録等", article:"第11条", title:"登録の実施",
+    text:"総務大臣は、第9条の登録の申請があつた場合においては、次条第1項の規定により登録を拒否する場合を除き、次の事項を電気通信事業者登録簿に登録しなければならない。一 前条第1項各号に掲げる事項。二 登録年月日及び登録番号。２ 総務大臣は、前項の規定による登録をしたときは、遅滞なく、その旨を申請者に通知しなければならない。",
+    keywords:["登録の実施","登録簿","登録年月日","登録番号","通知","電気通信事業者登録簿"]
+  },
+  {
+    id:"L12", chapter:"第2章 第2節 登録等", article:"第12条", title:"登録の拒否",
+    text:"総務大臣は、第10条第1項の申請書を提出した者が次の各号のいずれかに該当するとき、又は当該申請書若しくはその添付書類のうちに重要な事項について虚偽の記載があり、若しくは重要な事実の記載が欠けているときは、その登録を拒否しなければならない。一 この法律等の規定により罰金以上の刑に処せられ、その執行を終わり、又はその執行を受けることがなくなつた日から2年を経過しない者。二 登録の取消しを受け、その取消しの日から2年を経過しない者。三 法人又は団体であつて、その役員のうちに前二号のいずれかに該当する者があるもの。四 外国法人等であつて国内における代表者又は国内における代理人を定めていない者。五 その電気通信事業が電気通信の健全な発達のために適切でないと認められる者。",
+    keywords:["登録拒否","欠格事由","罰金","取消し","2年","役員","外国法人","不適切","拒否"]
+  },
+  {
+    id:"L13", chapter:"第2章 第2節 登録等", article:"第13条", title:"変更登録等",
+    text:"第9条の登録を受けた者は、第10条第1項第3号又は第4号の事項を変更しようとするときは、総務大臣の変更登録を受けなければならない。ただし、総務省令で定める軽微な変更については、この限りでない。",
+    keywords:["変更登録","業務区域","変更","軽微な変更","届出","申請"]
+  },
+  {
+    id:"L14", chapter:"第2章 第2節 登録等", article:"第14条", title:"登録の取消し",
+    text:"総務大臣は、第9条の登録を受けた者が次の各号のいずれかに該当するときは、同条の登録を取り消すことができる。一 当該第9条の登録を受けた者がこの法律又はこの法律に基づく命令若しくは処分に違反した場合において、公共の利益を阻害すると認めるとき。二 不正の手段により第9条の登録等を受けたとき。三 第12条第1項第1号から第4号までのいずれかに該当するに至つたとき。",
+    keywords:["登録取消し","取消し","法令違反","不正","公共の利益","欠格事由","処分"]
+  },
+  {
+    id:"L15", chapter:"第2章 第2節 登録等", article:"第15条", title:"登録の抹消",
+    text:"総務大臣は、第18条の規定による電気通信事業の全部の廃止若しくは解散の届出があつたとき、登録がその効力を失つたとき、又は登録の取消しをしたときは、当該第9条の登録を受けた者の登録を抹消しなければならない。",
+    keywords:["登録抹消","廃止","解散","取消し","抹消","効力を失う"]
+  },
+  {
+    id:"L16", chapter:"第2章 第2節 登録等", article:"第16条", title:"電気通信事業の届出",
+    text:"電気通信事業を営もうとする者（第9条の登録を受けるべき者を除く。）は、総務省令で定めるところにより、次の事項を記載した書類を添えて、その旨を総務大臣に届け出なければならない。一 氏名又は名称及び住所。二 外国法人等にあつては、国内における代表者等の氏名及び住所。三 業務区域。四 電気通信設備の概要（第44条第1項の事業用電気通信設備を設置する場合に限る。）。五 その他総務省令で定める事項。",
+    keywords:["届出","事業届出","登録不要","小規模","総務大臣","業務区域","手続き"]
+  },
+  {
+    id:"L17", chapter:"第2章 第2節 登録等", article:"第17条", title:"承継",
+    text:"電気通信事業の全部の譲渡しがあつたとき、又は電気通信事業者について合併、分割若しくは相続があつたときは、当該電気通信事業の全部を譲り受けた者又は合併後存続する法人等は、電気通信事業者の地位を承継する。承継した者は、遅滞なく、その旨を総務大臣に届け出なければならない。",
+    keywords:["承継","譲渡","合併","分割","相続","地位承継","届出","M&A","事業承継"]
+  },
+  {
+    id:"L18", chapter:"第2章 第2節 登録等", article:"第18条", title:"事業の休止及び廃止並びに法人の解散",
+    text:"電気通信事業者は、電気通信事業の全部又は一部を休止し、又は廃止したときは、遅滞なく、その旨を総務大臣に届け出なければならない。２ 電気通信事業者たる法人が合併以外の事由により解散したときは、その清算人又は破産管財人は、遅滞なく、その旨を総務大臣に届け出なければならない。",
+    keywords:["休止","廃止","解散","届出","事業終了","清算","破産"]
+  },
+  {
+    id:"L19", chapter:"第2章 第3節 業務", article:"第19条", title:"基礎的電気通信役務の契約約款",
+    text:"基礎的電気通信役務を提供する電気通信事業者は、その提供する基礎的電気通信役務に関する料金その他の提供条件について契約約款を定め、総務省令で定めるところにより、その実施前に、総務大臣に届け出なければならない。",
+    keywords:["契約約款","料金","提供条件","基礎的電気通信役務","届出","利用規約"]
+  },
+  {
+    id:"L20", chapter:"第2章 第3節 業務", article:"第25条", title:"提供義務",
+    text:"基礎的電気通信役務を提供する電気通信事業者は、正当な理由がなければ、その業務区域における基礎的電気通信役務の提供を拒んではならない。",
+    keywords:["提供義務","拒否禁止","業務区域","基礎的電気通信役務","義務"]
+  },
+  {
+    id:"L21", chapter:"第2章 第3節 業務", article:"第29条", title:"業務の改善命令",
+    text:"総務大臣は、電気通信事業者の業務の方法に関し通信の秘密の確保に支障があるとき、その他電気通信事業の適正な運営を確保するために必要があるときは、当該電気通信事業者に対し、業務の方法の改善その他の措置を講ずべきことを命ずることができる。",
+    keywords:["業務改善命令","改善命令","通信の秘密","適正な運営","命令","総務大臣","行政処分"]
+  },
+  {
+    id:"L22", chapter:"第6章 罰則", article:"第177条", title:"罰則（不法行為）",
+    text:"次の各号のいずれかに該当する者は、2年以下の懲役又は100万円以下の罰金に処する。第9条の規定に違反して登録を受けないで電気通信事業を営んだ者。第14条第1項の規定による登録の取消しを受けた後、引き続き電気通信事業を営んだ者。",
+    keywords:["罰則","懲役","罰金","無登録","2年","100万円","営業禁止違反"]
+  },
+  {
+    id:"L23", chapter:"第6章 罰則", article:"第179条", title:"罰則（通信の秘密侵害）",
+    text:"電気通信事業者の取扱中に係る通信の秘密を侵した者は、2年以下の懲役又は100万円以下の罰金に処する。２ 電気通信事業に従事する者が前項の行為をしたときは、3年以下の懲役又は200万円以下の罰金に処する。３ 前二項の未遂罪は、罰する。",
+    keywords:["罰則","通信の秘密","懲役","罰金","2年","3年","100万円","200万円","未遂","刑罰","侵害"]
+  },
+  {
+    id:"L24", chapter:"第6章 罰則", article:"第184条", title:"罰則（業務妨害等）",
+    text:"電気通信事業者の取扱中に係る通信の秘密を侵す行為を教唆し、又は従業者として行つた者は、前条の規定より重く処罰する。",
+    keywords:["教唆","業務妨害","従業者","重加算","秘密侵害","悪質"]
+  },
+  {
+    id:"L25", chapter:"第5章 雑則", article:"第164条", title:"適用除外",
+    text:"この法律の規定は、次に掲げる電気通信事業については、適用しない。一 専ら自己の電気通信設備を用いて自己のために電気通信役務を提供する事業。二 特定の者（特定多数の者を除く。）に対して電気通信役務を提供する事業。三 電気通信設備を用いて他人の通信を媒介する電気通信役務以外の電気通信役務（ドメイン名電気通信役務、検索情報電気通信役務、媒介相当電気通信役務を除く。）を電気通信回線設備を設置することなく提供する電気通信事業。",
+    keywords:["適用除外","除外","自己の設備","特定の者","ドメイン名","検索情報","媒介相当","第164条","例外"]
+  },
+  {
+    id:"L26", chapter:"第2章 第3節 業務", article:"第26条", title:"提供条件の説明",
+    text:"電気通信事業者は、利用者と電気通信役務の提供に関する契約の締結をしようとするときは、総務省令で定めるところにより、当該電気通信役務に関する料金その他の提供条件の概要について、その者に説明しなければならない。ただし、当該契約の内容その他の事情を勘案し、利用者の利益の保護のため支障を生ずることがないと認められるものとして総務省令で定める場合は、この限りでない。対象となる電気通信役務は、移動端末設備と接続される伝送路設備を用いて提供されるものや、利用者の利益を保護するため特に必要があるものとして総務大臣が指定するもの等。",
+    keywords:["提供条件の説明","説明義務","契約締結","料金説明","利用者保護","第26条","重要事項説明"]
+  },
+  {
+    id:"L27", chapter:"第2章 第3節 業務", article:"第26条の2", title:"書面の交付",
+    text:"電気通信事業者は、第26条第1項各号に掲げる電気通信役務の提供に関する契約が成立したときは、遅滞なく、総務省令で定めるところにより、書面を作成し、これを利用者に交付しなければならない。ただし、当該契約の内容その他の事情を勘案し、書面を交付しなくても利用者の利益の保護のため支障を生ずることがないと認められる場合は、この限りでない。電子情報処理組織を使用する方法による提供も、利用者の承諾を得て行うことができる。",
+    keywords:["書面交付","書面","契約書","交付義務","電子交付","契約成立","利用者","第26条の2"]
+  },
+  {
+    id:"L28", chapter:"第2章 第3節 業務", article:"第26条の3", title:"書面による解除（クーリングオフ）",
+    text:"電気通信事業者と移動端末設備に係る電気通信役務の提供に関する契約を締結した利用者は、総務省令で定める場合を除き、書面を受領した日から起算して8日を経過するまでの間、書面により当該契約の解除を行うことができる。この解除があった場合には、電気通信事業者は利用者に対し損害賠償若しくは違約金を請求することができない。電気通信事業者は受領した金銭等を速やかに返還しなければならない。本規定に反する特約で利用者に不利なものは、無効とする。",
+    keywords:["クーリングオフ","書面による解除","8日","解除","違約金","返金","利用者保護","第26条の3","契約解除"]
+  },
+  {
+    id:"L29", chapter:"第2章 第3節 業務", article:"第26条の4", title:"電気通信業務の休止及び廃止の周知",
+    text:"電気通信事業者は、電気通信業務の全部又は一部を休止し、又は廃止しようとするときは、総務省令で定めるところにより、あらかじめ、当該休止し、又は廃止しようとする電気通信業務に係る利用者に対し、利用者の利益を保護するために必要な事項として総務省令で定める事項を周知させなければならない。利用者の利益に及ぼす影響が大きい電気通信役務に係る業務の休止又は廃止については、あらかじめ総務大臣に届け出なければならない。",
+    keywords:["業務休止","業務廃止","周知","事前通知","利用者保護","届出","第26条の4","サービス終了"]
+  },
+  {
+    id:"L30", chapter:"第2章 第3節 業務", article:"第27条", title:"苦情等の処理",
+    text:"電気通信事業者は、第26条第1項各号に掲げる電気通信役務に係る当該電気通信事業者の業務の方法又は当該電気通信事業者が提供する同項各号に掲げる電気通信役務についての利用者からの苦情及び問合せについては、適切かつ迅速にこれを処理しなければならない。",
+    keywords:["苦情処理","問合せ","苦情","クレーム","適切","迅速","利用者対応","第27条","カスタマーサポート"]
+  },
+  {
+    id:"L31", chapter:"第2章 第3節 業務", article:"第27条の2", title:"電気通信事業者の禁止行為",
+    text:"電気通信事業者は、次に掲げる行為をしてはならない。一 利用者に対し、電気通信役務の提供に関する契約に関する事項であって、利用者の判断に影響を及ぼすこととなる重要なものにつき、故意に事実を告げず、又は不実のことを告げる行為（不実告知）。二 契約締結の勧誘に先立って、自己の氏名若しくは名称又は勧誘である旨を告げずに勧誘する行為。三 契約を締結しない旨の意思を示した者に対し、勧誘を継続する行為。四 迷惑を覚えさせるような仕方での勧誘行為。",
+    keywords:["禁止行為","不実告知","不告知","迷惑勧誘","虚偽","勧誘","名乗り","第27条の2","利用者保護","違反"]
+  },
+  {
+    id:"L32", chapter:"第2章 第3節 業務", article:"第29条", title:"業務の改善命令",
+    text:"総務大臣は、電気通信事業者の業務の方法に関し通信の秘密の確保に支障があるとき、電気通信業務が適切に実施されていないとき、その他電気通信事業の適正な運営を確保するために必要があるときは、当該電気通信事業者に対し、業務の方法の改善その他の措置を講ずべきことを命ずることができる。",
+    keywords:["業務改善命令","改善命令","通信の秘密","適正な運営","命令","総務大臣","行政処分","第29条"]
+  },
+  {
+    id:"L33", chapter:"第2章 第3節 業務", article:"第30条", title:"第一種指定電気通信設備を設置する電気通信事業者等の禁止行為等",
+    text:"総務大臣は、第二種指定電気通信設備を設置する電気通信事業者について、当該役務の収益の割合が総務省令で定める割合を超える場合において、他の電気通信事業者との間の適正な競争関係を確保するため必要があると認めるときは、当該電気通信事業者を禁止行為規制の対象として指定することができる。指定された電気通信事業者は、当該設備を用いる電気通信役務の提供に関し、自己に有利で他の電気通信事業者に不利な取扱いをする行為等が禁止される。",
+    keywords:["第二種指定電気通信設備","禁止行為","競争","指定","収益割合","不利な取扱い","第30条","公正競争"]
+  },
+  {
+    id:"L34", chapter:"第2章 第3節 業務", article:"第33条", title:"第一種指定電気通信設備との接続",
+    text:"総務大臣は、電気通信事業者の設置する電気通信設備であって、その電気通信回線設備の規模（端末系伝送路設備の設置の地域の範囲及び中継系伝送路設備の設置の区間の距離等）が総務省令で定める基準を超えるものを第一種指定電気通信設備として指定する。第一種指定電気通信設備を設置する電気通信事業者は、接続約款を定め、総務大臣に届け出なければならず、他の電気通信事業者から接続の請求を受けたときは、正当な理由がなければ応じなければならない。",
+    keywords:["第一種指定電気通信設備","接続","接続約款","指定","NTT","接続義務","ボトルネック","第33条"]
+  },
+  {
+    id:"L35", chapter:"第2章 第3節 業務", article:"第34条", title:"第二種指定電気通信設備との接続",
+    text:"総務大臣は、電気通信事業者の設置する電気通信設備であって、その一端が移動端末設備と接続される伝送路設備のうち、特定移動端末設備の接続数の占める割合が総務省令で定める割合を超えるものを第二種指定電気通信設備として指定する。第二種指定電気通信設備を設置する電気通信事業者は、接続約款を定め、総務大臣に届け出なければならない。",
+    keywords:["第二種指定電気通信設備","移動端末","接続","ドコモ","KDDI","ソフトバンク","接続約款","第34条","携帯電話"]
+  },
+  {
+    id:"L36", chapter:"第2章 第4節 電気通信設備", article:"第41条", title:"電気通信事業の用に供する電気通信設備の維持",
+    text:"電気通信事業者は、その電気通信事業の用に供する電気通信設備（利用者の電気通信設備との接続が総務省令で定める技術基準に適合するものに限る。）を総務省令で定める技術基準に適合するように維持しなければならない。この場合において、その技術基準は、電気通信設備の損壊又は故障により電気通信役務の提供に支障を及ぼさないようにすること等を目的として定められる。",
+    keywords:["電気通信設備","技術基準","維持義務","品質","安全性","設備","故障防止","第41条"]
+  },
+  {
+    id:"L37", chapter:"第2章 第4節 電気通信設備", article:"第44条", title:"事業用電気通信設備規則",
+    text:"電気通信事業者は、その電気通信事業の用に供する電気通信設備（事業用電気通信設備）を、総務省令で定める技術基準（事業用電気通信設備規則）に適合するように維持しなければならない。事業用電気通信設備規則は、電気通信設備の安全性・信頼性の確保、他の電気通信設備との妨害防止等を定める。",
+    keywords:["事業用電気通信設備","事業用電気通信設備規則","技術基準","安全性","信頼性","第44条"]
+  },
+  {
+    id:"L38", chapter:"第2章 第4節 電気通信設備", article:"第52条", title:"端末設備の接続",
+    text:"電気通信事業者は、利用者から端末設備（電気通信回線設備の一端に接続される電気通信設備であって、一の部分の設置の場所が他の部分の設置の場所と同一の構内又は同一の建物内であるものをいう。）をその電気通信回線設備に接続すべき旨の請求を受けたときは、その端末設備が技術基準（第53条の規定により認定を受けた端末機器に係るものを除く。）に適合する場合に限り、その請求を拒否することができない。",
+    keywords:["端末設備","接続","技術基準","電話機","モデム","第52条","接続請求","端末機器"]
+  },
+  {
+    id:"L39", chapter:"第2章 第4節 電気通信設備", article:"第53条", title:"端末設備の接続の技術基準",
+    text:"総務大臣は、利用者が接続する端末設備の技術基準を定める。この技術基準は、電気通信回線設備を損傷し、又はその機能に障害を与えないようにすること、電気通信回線設備を利用する他の利用者の通信に妨害を与えないようにすること、及び電磁的障害を発生させないようにすること等を目的として定められる。",
+    keywords:["端末設備","技術基準","接続技術基準","妨害","電磁的障害","第53条","端末機器"]
+  },
+  {
+    id:"L40", chapter:"第2章 第3節 業務", article:"第27条の12", title:"外部送信規律（利用者情報の外部送信）",
+    text:"電気通信事業者又は第三号事業を営む者（内容、利用者の範囲及び利用状況を勘案して利用者の利益に及ぼす影響が少なくないものとして総務省令で定める電気通信役務を提供する者に限る。）は、その提供する電気通信役務において、利用者の電気通信設備から利用者に関する情報を送信させる場合（通信の秘密に属するものを除く。）は、総務省令で定めるところにより、あらかじめ、その旨及び送信される情報の内容その他の総務省令で定める事項を利用者に通知し、又はこれらの事項を利用者が容易に知ることができる状態に置かなければならない。",
+    keywords:["外部送信規律","Cookie","クッキー","利用者情報","外部送信","通知義務","第27条の12","2023年改正","プライバシー","トラッキング"]
+  },
+  {
+    id:"L41", chapter:"第4章 電気通信紛争処理委員会", article:"第144条〜第159条", title:"電気通信紛争処理委員会",
+    text:"電気通信紛争処理委員会は、総務省に置かれ、電気通信事業に関する紛争について、あっせん又は仲裁を行う。委員会は委員5人以内で組織し、委員は両議院の同意を得て総務大臣が任命する。あっせんは、当事者の申請により開始される。仲裁は、当事者が仲裁合意をしたときに行われ、仲裁判断は確定判決と同一の効力を有する。",
+    keywords:["電気通信紛争処理委員会","紛争処理","あっせん","仲裁","紛争解決","第144条","第159条","ADR"]
+  },
+  {
+    id:"L42", chapter:"第5章 雑則", article:"第163条", title:"報告及び検査",
+    text:"総務大臣は、この法律の施行に必要な限度において、電気通信事業者その他の者に対し、その業務又は経理に関して報告をさせ、又はその職員に、電気通信事業者の営業所、事務所その他の事業場に立ち入り、業務若しくは経理の状況若しくは電気通信設備、帳簿、書類その他の物件を検査させることができる。",
+    keywords:["報告","検査","立入検査","業務検査","総務大臣","行政調査","第163条","監督"]
+  },
+  {
+    id:"L43", chapter:"第6章 罰則", article:"第186条", title:"罰則（届出違反等）",
+    text:"次の各号のいずれかに該当する者は、200万円以下の罰金に処する。一 第16条第1項の規定に違反して届出をせず、又は虚偽の届出をした者。二 第18条第1項の規定に違反して届出をせず、又は虚偽の届出をした者。三 第41条第1項の規定による認定を受けないで電気通信設備を使用した者。四 第163条の規定による報告をせず、若しくは虚偽の報告をし、又は検査を拒み、妨げ、若しくは忌避した者。",
+    keywords:["罰則","200万円","届出違反","虚偽届出","報告義務違反","立入検査妨害","第186条","罰金"]
+  },
+  {
+    id:"L44", chapter:"第6章 罰則", article:"第187条〜第193条", title:"罰則（その他）",
+    text:"第187条：次の各号のいずれかに該当する者は、100万円以下の罰金に処する。第26条の規定に違反して説明をせず、又は虚偽の説明をした者、第26条の2の規定に違反して書面を交付せず、又は虚偽記載の書面を交付した者、第27条の規定に違反して苦情等を処理しなかった者等。第190条：法人の代表者等が違反行為をしたときは、行為者を罰するほか、その法人に対しても同条の罰金を科する（両罰規定）。",
+    keywords:["罰則","100万円","説明義務違反","書面交付違反","苦情処理違反","両罰規定","法人","第187条","第190条"]
+  },
+  {
+    id:"L45", chapter:"第2章 第3節 業務", article:"第20条", title:"指定電気通信役務の保障契約約款",
+    text:"指定電気通信役務を提供する電気通信事業者は、その提供する指定電気通信役務に関する料金その他の提供条件について契約約款（保障契約約款）を定め、その実施前に総務大臣に届け出なければならない。総務大臣は、保障契約約款が料金の算出方法が不明確、差別的取扱い、不当競争等に該当すると認めるときは変更命令を出すことができる。",
+    keywords:["指定電気通信役務","保障契約約款","料金","届出","変更命令","提供条件","第一種指定電気通信設備"]
+  },
+  {
+    id:"L46", chapter:"第2章 第3節 業務", article:"第21条", title:"特定電気通信役務の料金",
+    text:"総務大臣は毎年少なくとも一回、特定電気通信役務に関する料金について基準料金指数を定め事業者に通知しなければならない。変更後の料金指数が基準料金指数を超えるときは総務大臣の認可を受けなければならない。基準料金指数を超えている場合、総務大臣は変更命令を出すものとする。",
+    keywords:["特定電気通信役務","料金","基準料金指数","料金指数","認可","変更命令","プライスキャップ"]
+  },
+  {
+    id:"L47", chapter:"第2章 第3節 業務", article:"第22条", title:"通信量等の記録",
+    text:"特定電気通信役務を提供する電気通信事業者は、総務省令で定める方法により、その提供する特定電気通信役務の通信量、回線数等を記録しておかなければならない。",
+    keywords:["通信量","回線数","記録","特定電気通信役務","帳簿"]
+  },
+  {
+    id:"L48", chapter:"第2章 第3節 業務", article:"第23条", title:"契約約款等の掲示等",
+    text:"基礎的電気通信役務、指定電気通信役務又は特定電気通信役務を提供する電気通信事業者は、届け出た契約約款又は認可を受けた料金を、総務省令で定めるところにより公表するとともに、営業所その他の事業所において公衆の見やすいように掲示しておかなければならない。",
+    keywords:["契約約款","掲示","公表","料金","提供条件","開示義務"]
+  },
+  {
+    id:"L49", chapter:"第2章 第3節 業務", article:"第24条", title:"会計の整理",
+    text:"基礎的電気通信役務・指定電気通信役務・特定ドメイン名電気通信役務を提供する事業者、第30条第1項により指定された事業者、第一種指定電気通信設備を設置する事業者は、総務省令で定める勘定科目の分類その他会計に関する手続に従い、その会計を整理しなければならない。",
+    keywords:["会計","勘定科目","会計整理","会計規則","財務"]
+  },
+  {
+    id:"L50", chapter:"第2章 第3節 業務", article:"第28条", title:"電気通信業務の停止等の報告",
+    text:"電気通信事業者は、電気通信業務に関する事故が発生した場合等において、総務省令で定めるところにより、総務大臣に報告しなければならない。",
+    keywords:["事故報告","障害","報告義務","通信障害","業務停止","インシデント"]
+  },
+  {
+    id:"L51", chapter:"第2章 第3節 業務", article:"第31条", title:"第一種指定電気通信設備との接続の基準等",
+    text:"第一種指定電気通信設備を設置する電気通信事業者は、接続約款に基づき他の電気通信事業者の電気通信設備との接続を行う場合において、総務省令で定める技術的条件その他の接続に関する条件を守らなければならない。接続約款は総務大臣に届け出なければならない。",
+    keywords:["第一種指定電気通信設備","接続","接続約款","接続条件","技術的条件","NTT東西"]
+  },
+  {
+    id:"L52", chapter:"第2章 第3節 業務", article:"第32条", title:"協定の締結等",
+    text:"電気通信事業者は、他の電気通信事業者と電気通信設備の接続に関する協定を締結し、変更し、又は廃止したときは、総務省令で定めるところにより、遅滞なく、その旨を総務大臣に届け出なければならない。",
+    keywords:["接続協定","協定","届出","電気通信設備の接続","相互接続"]
+  },
+  {
+    id:"L53", chapter:"第2章 第3節 業務", article:"第35条", title:"電気通信設備の接続に関する命令等",
+    text:"総務大臣は、電気通信事業者が接続約款によらない接続を行っている場合、接続拒否等が行われている場合等において、是正命令を出すことができる。",
+    keywords:["接続命令","是正命令","接続拒否","紛争","命令","電気通信紛争処理委員会"]
+  },
+  {
+    id:"L54", chapter:"第2章 第3節 業務", article:"第36条", title:"第一種指定電気通信設備の機能の変更又は追加に関する計画",
+    text:"第一種指定電気通信設備を設置する電気通信事業者は、当該設備の機能を変更し、又は追加しようとするときは、あらかじめ、その計画を公表しなければならない。",
+    keywords:["機能変更","機能追加","計画公表","第一種指定電気通信設備","NTT東西","事前公表"]
+  },
+  {
+    id:"L55", chapter:"第2章 第3節 業務", article:"第37条", title:"第一種指定電気通信設備の共用に関する協定",
+    text:"第一種指定電気通信設備を設置する電気通信事業者は、他の電気通信事業者からの申出があった場合に、当該設備の共用に関する協定を締結するよう努めなければならない。",
+    keywords:["設備共用","協定","第一種指定電気通信設備","設備シェアリング","共用"]
+  },
+  {
+    id:"L56", chapter:"第2章 第3節 業務", article:"第38条", title:"電気通信設備の共用に関する命令等",
+    text:"総務大臣は、電気通信事業者による電気通信設備の共用が適切に行われていないと認めるときは、当該事業者に対して共用を命ずることができる。",
+    keywords:["設備共用命令","共用","電気通信設備","命令","強制"]
+  },
+  {
+    id:"L57", chapter:"第2章 第3節 業務", article:"第38条の2", title:"第一種指定又は第二種指定電気通信設備を用いる卸電気通信役務の提供",
+    text:"第一種又は第二種指定電気通信設備を設置する電気通信事業者は、当該設備を用いる卸電気通信役務を提供するときは、卸電気通信役務の料金その他の提供条件について卸契約約款を定め、総務大臣に届け出なければならない。",
+    keywords:["卸電気通信役務","卸契約約款","卸売り","届出","指定電気通信設備","MVNO"]
+  },
+  {
+    id:"L58", chapter:"第2章 第3節 業務", article:"第39条", title:"卸電気通信役務の提供についての準用",
+    text:"卸電気通信役務の提供については、第31条から第38条の2までの規定（接続に関する規定）を準用する。",
+    keywords:["卸電気通信役務","準用","接続ルール","卸売り"]
+  },
+  {
+    id:"L59", chapter:"第2章 第3節 業務", article:"第39条の2", title:"第三号事業者の届出等",
+    text:"第三号事業（電気通信設備を用いて他人の通信を媒介する電気通信役務以外の電気通信役務を提供する事業で適用除外でないもの）を営もうとする者は、総務省令で定めるところにより、その旨を総務大臣に届け出なければならない。",
+    keywords:["第三号事業","届出","第三号事業者","プラットフォーム","SNS","検索","ドメイン名"]
+  },
+  {
+    id:"L60", chapter:"第2章 第3節 業務", article:"第40条", title:"外国政府等との協定等の認可",
+    text:"電気通信事業者は、外国政府、外国の公共事業体又は外国の電気通信事業者との間において電気通信業務に関する協定又は契約を締結し、変更し、又は廃止しようとするときは、総務大臣の認可を受けなければならない。ただし、総務省令で定める軽微なものについては、この限りでない。",
+    keywords:["外国","協定","認可","国際電話","国際通信","外国政府","外国電気通信事業者"]
+  },
+  {
+    id:"L61", chapter:"第2章 第4節 電気通信設備", article:"第42条", title:"電気通信事業者による電気通信設備の自己確認",
+    text:"電気通信事業者は、その電気通信事業の用に供する電気通信設備を設置したとき、又はその設置の工事が完成したときは、総務省令で定めるところにより、当該電気通信設備が技術基準に適合していることを自ら確認しなければならない。",
+    keywords:["自己確認","電気通信設備","技術基準","適合確認","設置","工事"]
+  },
+  {
+    id:"L62", chapter:"第2章 第4節 電気通信設備", article:"第43条", title:"電気通信主任技術者",
+    text:"電気通信事業者は、事業用電気通信設備の工事、維持及び運用に関する事項の監督をさせるため、電気通信主任技術者資格者証の交付を受けている者のうちから、電気通信主任技術者を選任しなければならない。",
+    keywords:["電気通信主任技術者","資格","選任","監督","技術者","資格者証"]
+  },
+  {
+    id:"L63", chapter:"第2章 第4節 電気通信設備", article:"第45条", title:"設備改善命令",
+    text:"総務大臣は、事業用電気通信設備が技術基準に適合していないと認めるときは、当該電気通信事業者に対し、当該設備を技術基準に適合するよう改善することを命ずることができる。",
+    keywords:["設備改善命令","技術基準","命令","不適合","改善"]
+  },
+  {
+    id:"L64", chapter:"第2章 第4節 電気通信設備", article:"第46条", title:"業務の停止命令等（設備基準不適合）",
+    text:"総務大臣は、事業用電気通信設備が技術基準に著しく適合していないと認めるときは、当該電気通信事業者に対し、電気通信業務の全部又は一部の停止を命ずることができる。",
+    keywords:["業務停止命令","技術基準","命令","著しく不適合","停止"]
+  },
+  {
+    id:"L65", chapter:"第2章 第4節 電気通信設備", article:"第47条", title:"技術基準適合認定",
+    text:"電気通信事業者は、その使用する電気通信設備について登録認定機関の認定を受けることができる。認定を受けた設備については、技術基準への適合が推定される。",
+    keywords:["技術基準適合認定","登録認定機関","認定","推定","適合"]
+  },
+  {
+    id:"L66", chapter:"第2章 第4節 電気通信設備", article:"第48条", title:"型式認定",
+    text:"電気通信事業者は、同一の工場等で製造された多数の設備について、一括して技術基準への適合の確認を受けることができる（型式認定）。",
+    keywords:["型式認定","一括認定","製造","工場","量産"]
+  },
+  {
+    id:"L67", chapter:"第2章 第4節 電気通信設備", article:"第49条", title:"電気通信設備に関する情報の提供",
+    text:"総務大臣は、電気通信事業者に対し、その電気通信設備に関する情報の提供を求めることができる。",
+    keywords:["情報提供","電気通信設備","報告徴収","情報収集"]
+  },
+  {
+    id:"L68", chapter:"第2章 第4節 電気通信番号", article:"第50条", title:"電気通信番号の指定",
+    text:"総務大臣は、電気通信番号（電話番号等）を電気通信事業者に指定する。電気通信番号は電気通信事業者が電気通信役務を提供するために使用する符号であり、総務大臣が電気通信番号計画に従い管理する。",
+    keywords:["電気通信番号","電話番号","番号指定","番号計画","総務大臣","番号管理"]
+  },
+  {
+    id:"L69", chapter:"第2章 第4節 電気通信番号", article:"第50条の2〜第51条", title:"電気通信番号の管理・利用者設備識別番号",
+    text:"電気通信事業者は、指定された電気通信番号を適正に管理・使用しなければならない。利用者設備識別番号（IMEI等）についても同様の規律が設けられている。総務大臣は番号の変更・取消し等を行うことができる。",
+    keywords:["電気通信番号","番号管理","IMEI","利用者設備識別番号","番号変更","番号取消"]
+  },
+  {
+    id:"L70", chapter:"第2章 第4節 端末設備の接続等", article:"第54条〜第57条", title:"端末設備の技術基準・確認等",
+    text:"電気通信事業者は、利用者の端末設備が技術基準に適合しない場合、接続を拒否できる。端末設備の技術基準への適合は、総務大臣の登録を受けた登録認定機関が確認を行う（技術基準適合認定）。認定を受けた端末機器には認定の表示を付けることができる。",
+    keywords:["端末設備","技術基準","技術基準適合認定","登録認定機関","接続拒否","端末機器","認定表示"]
+  },
+  {
+    id:"L71", chapter:"第2章 第4節 端末設備の接続等", article:"第58条〜第65条", title:"登録認定機関の登録・業務等",
+    text:"端末設備等の技術基準適合認定を行う機関は、総務大臣の登録を受けなければならない（登録認定機関）。登録認定機関は認定の公正な実施を確保するための業務規程を定め、総務大臣に届け出なければならない。",
+    keywords:["登録認定機関","登録","業務規程","公正","認定業務","届出"]
+  },
+  {
+    id:"L72", chapter:"第2章 第4節 端末設備の接続等", article:"第66条〜第73条", title:"技術基準適合自己確認・承認認定機関等",
+    text:"製造業者等は、端末機器について自ら技術基準への適合を確認することができる（技術基準適合自己確認）。外国の認定機関（承認認定機関）による認定も活用できる。電気通信事業者は自己確認が行われた端末機器についても技術基準適合認定と同様に接続を認めなければならない。",
+    keywords:["技術基準適合自己確認","自己確認","承認認定機関","外国","端末機器","製造業者"]
+  },
+  {
+    id:"L73", chapter:"第2章 第5節 届出媒介等業務受託者", article:"第73条の2〜第73条の4", title:"届出媒介等業務受託者",
+    text:"電気通信事業者から電気通信役務の提供に関する契約の締結の媒介等の業務を委託された者（届出媒介等業務受託者）は、その旨を総務大臣に届け出なければならない。届出媒介等業務受託者は電気通信事業者の禁止行為規制と同様の規制を受ける。電気通信事業者は受託者の法令違反に対して是正措置を講じる責任を負う。",
+    keywords:["届出媒介等業務受託者","媒介","代理","委託","販売代理店","届出","禁止行為"]
+  },
+  {
+    id:"L74", chapter:"第2章 第6節 指定試験機関", article:"第74条〜第85条", title:"指定試験機関",
+    text:"電気通信主任技術者の資格試験を実施する機関として、総務大臣が指定試験機関を指定する。指定試験機関は試験業務規程を定め、試験を公正に実施する義務を負う。総務大臣は指定試験機関に対して報告徴収・立入検査・改善命令・指定取消等の監督権限を有する。",
+    keywords:["指定試験機関","電気通信主任技術者","資格試験","試験業務規程","監督","指定取消"]
+  },
+  {
+    id:"L75", chapter:"第2章 第6節 登録講習機関", article:"第85条の2〜第85条の15", title:"登録講習機関",
+    text:"電気通信主任技術者の養成に係る講習を実施する機関は、総務大臣の登録を受けることができる（登録講習機関）。登録講習機関は講習業務規程を定め、適正に講習を実施しなければならない。",
+    keywords:["登録講習機関","講習","電気通信主任技術者","養成","登録"]
+  },
+  {
+    id:"L76", chapter:"第2章 第6節 登録認定機関", article:"第86条〜第103条", title:"登録認定機関（詳細）",
+    text:"電気通信事業法に基づく各種認定（技術基準適合認定等）を行う機関は、総務大臣の登録を受けなければならない。登録認定機関は認定業務規程を定め、公正かつ適正に認定業務を実施する。総務大臣は業務改善命令・登録取消等の監督権限を持つ。登録認定機関は認定の記録を保存し、年次報告を提出しなければならない。",
+    keywords:["登録認定機関","認定業務規程","認定","公正","業務改善命令","登録取消","監督","年次報告"]
+  },
+  {
+    id:"L77", chapter:"第2章 第6節 承認認定機関", article:"第104条〜第105条", title:"承認認定機関",
+    text:"外国の認定機関であって、その行う認定が日本の技術基準適合認定と同等のものとして承認されたもの（承認認定機関）による認定も、日本での効力が認められる。",
+    keywords:["承認認定機関","外国","相互承認","技術基準","国際認定"]
+  },
+  {
+    id:"L78", chapter:"第2章 第7節 基礎的電気通信役務支援機関", article:"第106条〜第116条", title:"基礎的電気通信役務支援機関",
+    text:"基礎的電気通信役務（電話・公衆電話等）の全国提供を支援するための交付金・負担金制度を運営する機関として、総務大臣が基礎的電気通信役務支援機関を指定する。ユニバーサルサービス基金を管理し、提供事業者への交付金交付と負担義務事業者への負担金徴収を行う。",
+    keywords:["基礎的電気通信役務支援機関","ユニバーサルサービス","交付金","負担金","ユニバーサルサービス基金","全国提供","電話","公衆電話"]
+  },
+  {
+    id:"L79", chapter:"第2章 第8節 認定送信型対電気通信設備サイバー攻撃対処協会", article:"第116条の2〜第116条の8", title:"認定送信型対電気通信設備サイバー攻撃対処協会",
+    text:"電気通信事業者のネットワークに対するサイバー攻撃（送信型攻撃）への対処を行う協会として、総務大臣が認定する（認定送信型対電気通信設備サイバー攻撃対処協会）。協会は攻撃通信の分析・通知・通信履歴の取扱い等の業務を行う。電気通信事業者は協会の通知を受けて対処措置を講じる。",
+    keywords:["サイバー攻撃","認定送信型対電気通信設備サイバー攻撃対処協会","セキュリティ","攻撃通信","通信履歴","対処"]
+  },
+  {
+    id:"L80", chapter:"第3章 第1節 事業の認定", article:"第117条〜第127条", title:"事業の認定（土地使用のため）",
+    text:"電気通信事業者は、電気通信回線設備の設置のため他人の土地を使用する必要があるときは、総務大臣の認定を受けることができる（事業の認定）。認定を受けた電気通信事業者は、他人の土地を使用する権利が付与される。認定申請には業務区域・設備の概要等を記載した申請書を提出する。",
+    keywords:["事業の認定","土地使用","認定","電気通信回線設備","土地収用","第三章"]
+  },
+  {
+    id:"L81", chapter:"第3章 第2節 土地の使用", article:"第128条〜第143条", title:"土地の使用",
+    text:"認定電気通信事業者は、電気通信回線設備の設置のため、他人の土地に立ち入り、測量・調査を行う権利を有する。線路・アンテナ等の設置のために必要な土地の使用を求めることができる。土地所有者との協議が整わないときは収用委員会に裁決を申請することができる。土地の使用に当たっては補償金を支払わなければならない。",
+    keywords:["土地の使用","立入","測量","電柱","線路","アンテナ","補償","収用","土地所有者"]
+  },
+  {
+    id:"L82", chapter:"第4章 第1節 設置及び組織", article:"第144条〜第153条", title:"電気通信紛争処理委員会の組織",
+    text:"電気通信紛争処理委員会は総務省に置かれ、委員5人以内で組織される。委員は両議院の同意を得て総務大臣が任命し、任期は3年。委員は独立してその職権を行い、在任中は原則として意に反して罷免されない。委員会に事務局を置く。",
+    keywords:["電気通信紛争処理委員会","委員","組織","任命","総務大臣","独立","任期","事務局"]
+  },
+  {
+    id:"L83", chapter:"第4章 第2節 あっせん及び仲裁", article:"第154条〜第159条", title:"あっせん及び仲裁の手続",
+    text:"電気通信紛争処理委員会は、電気通信事業者間の接続・共用・卸電気通信役務に関する紛争について、当事者の申請によりあっせん又は仲裁を行う。あっせんは委員会が当事者双方の主張を聴き解決案を提示する手続。仲裁は当事者が合意した場合に行われ、仲裁判断は確定判決と同一の効力を持つ。",
+    keywords:["あっせん","仲裁","電気通信紛争処理委員会","紛争解決","申請","仲裁判断","接続紛争","ADR"]
+  },
+  {
+    id:"L84", chapter:"第4章 第3節 諮問等", article:"第160条〜第162条", title:"諮問等",
+    text:"総務大臣は、電気通信事業に関する重要事項を電気通信紛争処理委員会に諮問することができる。委員会は総務大臣からの諮問に対して答申を行うほか、必要に応じて意見を申し出ることができる。",
+    keywords:["諮問","答申","電気通信紛争処理委員会","意見申出","重要事項"]
+  },
+  {
+    id:"L85", chapter:"第5章 雑則", article:"第165条〜第166条", title:"適用除外・外国事業者への適用",
+    text:"第165条：電気通信事業法の規定は外国の電気通信事業者にも適用される場合がある。第166条：電気通信役務の提供を受ける者の保護に関する規定については、当該役務が日本国内において提供される場合に適用する。",
+    keywords:["外国事業者","適用除外","外国","国際","域外適用"]
+  },
+  {
+    id:"L86", chapter:"第5章 雑則", article:"第167条〜第167条の2", title:"移動電気通信役務の提供との関係",
+    text:"移動電気通信役務（携帯電話サービス等）の提供において、端末設備販売と役務提供を組み合わせた不当な条件設定等を禁止する。他の電気通信事業者との適正な競争関係を阻害するおそれがある利益提供を禁止する。",
+    keywords:["移動電気通信役務","携帯電話","端末","不当条件","競争阻害","利益提供禁止","端末割引"]
+  },
+  {
+    id:"L87", chapter:"第5章 雑則", article:"第168条〜第169条", title:"電気通信役務の提供の認可等・電気通信番号の使用",
+    text:"第168条：総務大臣は電気通信事業者に対して公共の利益のために必要な事項を命ずることができる。第169条：電気通信事業者以外の者が電気通信番号を不正に使用することを禁止する。",
+    keywords:["電気通信役務","命令","電気通信番号","不正使用","禁止","公共の利益"]
+  },
+  {
+    id:"L88", chapter:"第5章 雑則", article:"第170条〜第171条", title:"利用者の保護等",
+    text:"第170条：電気通信事業者は、利用者の個人情報を適正に取り扱わなければならない。第171条：電気通信事業者は、サービスの内容・料金等について、利用者に誤認させるおそれのある表示をしてはならない。",
+    keywords:["利用者保護","個人情報","誤認","表示","個人情報保護","誤解"]
+  },
+  {
+    id:"L89", chapter:"第5章 雑則", article:"第172条〜第174条", title:"電気通信事業の監督等",
+    text:"第172条：総務大臣は、電気通信事業者に対して業務・経理に関する報告を求め、立入検査を行うことができる。第173条：電気通信事業者は帳簿・書類を保存しなければならない。第174条：総務大臣は電気通信事業の適正な運営確保のため必要な指示を行うことができる。",
+    keywords:["監督","報告徴収","立入検査","帳簿保存","指示","業務監督"]
+  },
+  {
+    id:"L90", chapter:"第5章 雑則", article:"第175条〜第176条の2", title:"手数料・経過措置等",
+    text:"第175条：電気通信主任技術者資格者証の交付等の申請には、政令で定める手数料を納付しなければならない。第176条：この法律の施行に関し必要な経過措置は政令で定める。第176条の2：この法律の規定に基づく命令の規定の適用に関し必要な事項は総務省令で定める。",
+    keywords:["手数料","経過措置","資格者証","政令","省令","施行"]
+  },
+  {
+    id:"L91", chapter:"第6章 罰則", article:"第178条", title:"罰則（通信妨害・設備損壊）",
+    text:"電気通信設備を損壊し、その他の方法で電気通信の妨害を行った者は、5年以下の懲役又は100万円以下の罰金に処する。電気通信事業者の業務の遂行を妨害した者も同様の罰則の対象となる。",
+    keywords:["通信妨害","設備損壊","妨害","罰則","5年","懲役","100万円","罰金"]
+  },
+  {
+    id:"L92", chapter:"第6章 罰則", article:"第180条〜第183条", title:"罰則（禁止行為違反・各種義務違反）",
+    text:"第180条：第30条の規定に違反した者（禁止行為等）は1年以下の懲役又は100万円以下の罰金。第181条：第27条の2の規定に違反した者（禁止行為）は100万円以下の罰金。第182条：第26条の規定に違反した者（説明義務違反）は50万円以下の罰金。第183条：各種届出義務違反には30万円以下の罰金。",
+    keywords:["罰則","1年","懲役","100万円","50万円","30万円","禁止行為違反","届出違反","罰金"]
+  },
+  {
+    id:"L93", chapter:"第6章 罰則", article:"第185条", title:"罰則（業務上の不正行為）",
+    text:"電気通信事業者の業務に従事する者が、その業務に関して不正の利益を得た場合等には、3年以下の懲役又は200万円以下の罰金に処する。",
+    keywords:["業務妨害","不正利益","罰則","3年","200万円","従事者","業務関連犯罪"]
+  },
+  {
+    id:"L94", chapter:"第6章 罰則", article:"第188条〜第193条", title:"両罰規定・過料",
+    text:"第190条：法人の代表者等が違反行為をした場合、行為者を罰するほか、その法人に対しても罰金を科する（両罰規定）。第191条：法人の代表者等が各条の違反をした場合の罰則。第192条・第193条：軽微な義務違反（届出懈怠等）については100万円以下又は30万円以下の過料を科す。",
+    keywords:["両罰規定","過料","法人","代表者","罰則","100万円","30万円","行政罰"]
+  },
+];
+
+// ============================================================
+// Q&A ナレッジベース（20問）
+// ============================================================
+const QA_DATA = [
+  {
+    id:"Q01", category:"目的・定義", articles:["第1条"],
+    question:"この法律の目的は何ですか？",
+    answer:"電気通信事業法は、電気通信事業の公共性にかんがみ、その運営を適正かつ合理的なものとするとともに、その公正な競争を促進することにより、電気通信役務の円滑な提供を確保するとともにその利用者の利益を保護し、もつて電気通信の健全な発達及び国民の利便の確保を図り、公共の福祉を増進することを目的とします。",
+    keywords:["目的","公共性","利用者保護","公正競争","国民の利便","公共の福祉","健全な発達"]
+  },
+  {
+    id:"Q02", category:"目的・定義", articles:["第2条第1号"],
+    question:"「電気通信」とはどのように定義されていますか？",
+    answer:"電気通信とは、有線、無線その他の電磁的方式により、符号、音響又は影像を送り、伝え、又は受けることをいいます。",
+    keywords:["電気通信","定義","有線","無線","電磁的方式","符号","音響","影像","送信","受信"]
+  },
+  {
+    id:"Q03", category:"目的・定義", articles:["第2条第3号"],
+    question:"「電気通信役務」とはどういう意味ですか？",
+    answer:"電気通信役務とは、電気通信設備を用いて他人の通信を媒介し、その他電気通信設備を他人の通信の用に供することをいいます。",
+    keywords:["電気通信役務","役務","定義","媒介","通信設備","提供","サービス"]
+  },
+  {
+    id:"Q04", category:"目的・定義", articles:["第2条第4号"],
+    question:"「電気通信事業」の定義を教えてください。",
+    answer:"電気通信事業とは、電気通信役務を他人の需要に応ずるために提供する事業（放送法第118条第1項に規定する放送局設備供給役務に係る事業を除く。）をいいます。なお、企業や個人が自社サービスのためにのみ運営するウェブサイトは「自己の需要のため」とみなされ、電気通信事業には該当しません。",
+    keywords:["電気通信事業","定義","他人の需要","放送法","自己の需要","事業","ウェブサイト"]
+  },
+  {
+    id:"Q05", category:"目的・定義", articles:["第2条第5号"],
+    question:"「電気通信事業者」とは誰を指しますか？",
+    answer:"電気通信事業者とは、電気通信事業を営むことについて、第9条の登録を受けた者及び第16条第1項の規定による届出をした者をいいます。電話会社、携帯電話会社、インターネットプロバイダ、メールサービス事業者、SNSプラットフォーム運営者なども含まれます。",
+    keywords:["電気通信事業者","定義","登録","届出","ISP","SNS","プロバイダ","携帯","電話会社","対象"]
+  },
+  {
+    id:"Q06", category:"登録・届出", articles:["第9条"],
+    question:"電気通信事業を始めるにはどのような手続きが必要ですか？",
+    answer:"電気通信事業を営もうとする者は、総務大臣の登録を受けなければなりません。ただし、設置する電気通信回線設備の規模及び当該電気通信回線設備を設置する区域の範囲が総務省令で定める基準を超えない場合等は、登録の代わりに届出で足ります。",
+    keywords:["登録","届出","総務大臣","事業開始","手続き","申請","新規","参入","事業"]
+  },
+  {
+    id:"Q07", category:"登録・届出", articles:["第9条"],
+    question:"登録が必要となる具体的な条件は何ですか？",
+    answer:"登録が必要なのは「電気通信回線設備を設置している」かつ、「端末系送電路設備の設置の地域が一の市町村の区域を超えている」または「中継系伝送路設備の設置の区間が一の都道府県の区域を超えている」場合です。",
+    keywords:["登録","条件","電気通信回線設備","市町村","都道府県","端末系","中継系","基準"]
+  },
+  {
+    id:"Q08", category:"登録・届出", articles:["第18条"],
+    question:"事業を休止・廃止する場合、何か手続きは必要ですか？",
+    answer:"電気通信事業の全部・一部の休廃止を行う場合は、利用者への周知と事後の届出が必要です。利用者保護の観点から事前に十分な告知を行うことが求められます。",
+    keywords:["休止","廃止","届出","周知","利用者","事業終了","廃業","停止","手続き"]
+  },
+  {
+    id:"Q09", category:"通信の秘密", articles:["第4条"],
+    question:"「通信の秘密」についてはどのように規定されていますか？",
+    answer:"電気通信事業者の取扱中に係る通信の秘密は、侵してはなりません。電気通信事業に従事する者は、在職中電気通信事業者の取扱中に係る通信に関して知り得た他人の秘密を守らなければならず、その職を退いた後においても同様です。",
+    keywords:["通信の秘密","秘密保護","侵害","プライバシー","第4条","守秘義務","従事者"]
+  },
+  {
+    id:"Q10", category:"通信の秘密", articles:["第4条"],
+    question:"「通信の秘密」として保護される範囲はどこまでですか？",
+    answer:"「通信の秘密」には、①個別の通信に係る通信内容のほか、②個別の通信に係る通信の日時、場所、通信当事者の氏名、住所・居所、電話番号などの当事者の識別符号、通信回数等、これらの事項を知られることによって通信の意味内容を推知されるような事項すべてが含まれます。",
+    keywords:["通信の秘密","保護範囲","通信内容","氏名","住所","電話番号","通信日時","通信回数","識別符号","範囲"]
+  },
+  {
+    id:"Q11", category:"通信の秘密", articles:["第4条第2項"],
+    question:"退職後も通信の秘密を守る義務はありますか？",
+    answer:"はい、義務は継続します。電気通信事業に従事していた際に知り得た他人の秘密は、退職後も守らなければなりません（第4条第2項）。退職後も秘密保持義務が法律上明示的に規定されている点が重要です。",
+    keywords:["退職後","退職","秘密保持","義務","従業員","在職中","辞職","離職","継続"]
+  },
+  {
+    id:"Q12", category:"罰則", articles:["第179条"],
+    question:"通信の秘密を侵した場合、どのような罰則がありますか？",
+    answer:"電気通信事業者の取扱中に係る通信の秘密を侵した者は、2年以下の懲役又は100万円以下の罰金に処されます。電気通信事業に従事する者が同行為をした場合は加重され、3年以下の懲役又は200万円以下の罰金となります。未遂罪も罰せられます。",
+    keywords:["罰則","懲役","罰金","通信の秘密","刑事罰","2年","3年","100万円","200万円","未遂","刑罰","違反"]
+  },
+  {
+    id:"Q13", category:"通信の秘密", articles:["第4条","日本国憲法第21条第2項"],
+    question:"通信の秘密はなぜ厳格に保護されているのですか？",
+    answer:"日本国憲法第21条第2項で「通信の秘密は、これを侵してはならない」と規定されており、電気通信事業法第4条はこの憲法上の要請を法律レベルで具体化したものです。個人のプライバシー保護とともに表現の自由・知る権利を守る趣旨があります。",
+    keywords:["憲法","第21条","プライバシー","表現の自由","保護理由","根拠","知る権利","基本的人権"]
+  },
+  {
+    id:"Q14", category:"非常時対応", articles:["第8条"],
+    question:"災害などの非常時、電気通信事業者はどのように対応しなければなりませんか？",
+    answer:"電気通信事業者は、天災、事変その他の非常事態が発生し、又は発生するおそれがあるときは、災害の予防若しくは救援、交通、通信若しくは電力の供給の確保又は秩序の維持のために必要な事項を内容とする通信を優先的に取り扱わなければなりません。また、必要があるときは総務省令で定める基準に従い、電気通信業務の一部を停止することもできます。",
+    keywords:["非常時","災害","天災","通信優先","緊急","業務停止","第8条","震災","地震","台風","優先","対応","対処","事業者","通信","確保","措置","停止","事変","救援"]
+  },
+  {
+    id:"Q15", category:"目的・定義", articles:["第5条"],
+    question:"電気通信事業の条約との関係はどうなっていますか？",
+    answer:"電気通信事業に関し条約に別段の定めがあるときは、その規定によります（第5条）。国際条約が国内法に優先する旨が明示されており、国際的な電気通信協定・条約が適用される場合は条約規定が優先されます。",
+    keywords:["条約","国際","優先","国内法","第5条","協定","外国","国際法"]
+  },
+  {
+    id:"Q16", category:"公正競争", articles:["第1条"],
+    question:"なぜ電気通信事業法では公正競争の促進が求められているのですか？",
+    answer:"電気通信事業者が電気通信事業法を守って事業を行うことで、利用者が電話やインターネットなどのインフラを適正な価格で誰もが利用できるようになります。ネットワークを利用する事業者が公平な条件でサービスを提供できるよう、公正競争ルールを整備・運用し、低廉で多様なサービス提供を促進することが目的です。",
+    keywords:["公正競争","競争促進","適正価格","利用者保護","低廉","多様なサービス","ルール","市場"]
+  },
+  {
+    id:"Q17", category:"公正競争", articles:["第33条以下"],
+    question:"NTT東西のような大規模事業者に対して特別な規制はありますか？",
+    answer:"固定系では加入者回線シェアが50%を超える電気通信事業者（NTT東日本・西日本）が「一種指定設備設置者」、移動系では端末シェアが10%を超える電気通信事業者（NTTドコモ、KDDI、沖縄セルラー、ソフトバンク）が「二種指定設備設置者」として、接続料等の公平性・透明性、接続の迅速性を担保するための指定電気通信設備制度が課されています。",
+    keywords:["NTT","大規模事業者","指定設備","シェア","50%","10%","ドコモ","KDDI","ソフトバンク","接続料","規制","支配的"]
+  },
+  {
+    id:"Q18", category:"適用除外", articles:["第164条第1項第3号"],
+    question:"法律の適用除外となる電気通信事業はありますか？",
+    answer:"電気通信設備を用いて他人の通信を媒介する電気通信役務以外の電気通信役務（ドメイン名電気通信役務、検索情報電気通信役務、媒介相当電気通信役務を除く。）を電気通信回線設備を設置することなく提供する電気通信事業については適用が除外されます（第164条第1項第3号）。",
+    keywords:["適用除外","除外","ドメイン名","検索情報","媒介相当","第164条","例外"]
+  },
+  {
+    id:"Q19", category:"2023年改正", articles:["第27条の12"],
+    question:"2023年の改正電気通信事業法では何が変わりましたか？",
+    answer:"2023年6月に施行された改正法では、電気通信事業者のカテゴリの再定義や新しい事業者の類型が新設されました。特に影響範囲が大きかったのは「外部送信規律（Cookie規制）」で、一般的なウェブサイトを公開しているだけでも対象となりえるほどの広い適用範囲となりました。",
+    keywords:["改正","2023年","外部送信規律","Cookie","クッキー","Cookie規制","新設","カテゴリ","改正法"]
+  },
+  {
+    id:"Q20", category:"2023年改正", articles:["第27条の12"],
+    question:"改正電気通信事業法の「外部送信規律」は具体的にどのような事業者に適用されますか？",
+    answer:"電気通信事業者又は第三号事業を営む者（総務省令で定める電気通信役務を提供する者に限る。）が対象となります（第27条の12）。具体的には、ECモール・ポータルサイト・ニュースサイト・掲示板・チャット・SNSプラットフォームの運営者など、幅広い事業者がこの規律の対象に含まれます。",
+    keywords:["外部送信規律","対象事業者","ECモール","SNS","ニュースサイト","掲示板","チャット","ポータルサイト","Cookie","第三号"]
+  }
+];
+
+// サンプル質問
+const SAMPLES = [
+  "この法律の目的は？",
+  "通信の秘密を漏らしたらどうなる？",
+  "退職後も秘密保持義務がある？",
+  "事業を廃止するには？",
+  "Cookie規制について教えて",
+  "NTTへの特別規制は？",
+  "非常時の通信優先ルールは？",
+  "新規に事業を始める手続きは？"
+];
+
+// 判定閾値
+const SCORE_HIGH = 0.35;
+const SCORE_MID  = 0.15;
+
+// ============================================================
+// API接続設定
+// PROXY_URLを設定するとCloudflare Workers経由でAPIキー不要動作
+// 直接接続する場合は PROXY_URL = '' のままにする
+// ============================================================
+const PROXY_URL = '';  // 例: 'https://telecom-qa-proxy.your-name.workers.dev'
+
+// ★ 管理者設定欄：配布前にAPIキーをここに入力してください
+// ここに設定するとAPIキー入力欄が画面上に表示されなくなります
+const EMBEDDED_API_KEY = '';  // 例: 'sk-ant-api03-xxxx'
+
+// 履歴
+
+// ============================================================
+// 初期化
+// ============================================================
+window.onload = () => {
+  // サンプルチップ生成
+  const container = document.getElementById('sampleChips');
+  SAMPLES.forEach(s => {
+    const chip = document.createElement('button');
+    chip.className = 'chip';
+    chip.textContent = s;
+    chip.onclick = () => {
+      document.getElementById('questionInput').value = s;
+      search();
+    };
+    container.appendChild(chip);
+  });
+
+  // 埋め込みキーまたはプロキシ設定時：APIキー入力欄を非表示
+  if ((EMBEDDED_API_KEY && EMBEDDED_API_KEY.trim()) ||
+      (PROXY_URL && PROXY_URL.trim() !== '')) {
+    document.getElementById('apiSection').style.display = 'none';
+  } else {
+    // 入力モード：保存済みキーを復元
+    const saved = localStorage.getItem('anthropic_api_key');
+    if (saved) {
+      document.getElementById('apiKeyInput').value = saved;
+      updateApiStatus(true);
+    }
+  }
+};
+
+// ============================================================
+// APIキー保存
+// ============================================================
+function saveApiKey() {
+  const key = document.getElementById('apiKeyInput').value.trim();
+  if (!key) { alert('APIキーを入力してください。'); return; }
+  localStorage.setItem('anthropic_api_key', key);
+  updateApiStatus(true);
+}
+
+function updateApiStatus(ok) {
+  const el = document.getElementById('apiStatus');
+  if (ok) {
+    el.textContent = '✅ 設定済み';
+    el.className = 'api-status';
+  } else {
+    el.textContent = '❌ 未設定';
+    el.className = 'api-status none';
+  }
+}
+
+function getApiKey() {
+  // 埋め込みキー優先 → なければlocalStorageのキー
+  return (EMBEDDED_API_KEY && EMBEDDED_API_KEY.trim())
+    ? EMBEDDED_API_KEY.trim()
+    : (localStorage.getItem('anthropic_api_key') || '');
+}
+
+// ============================================================
+// テキスト正規化
+// ============================================================
+function normalize(text) {
+  return text
+    .toLowerCase()
+    .replace(/[　 \t\r\n]+/g, ' ')
+    .replace(/[・。、，．？！「」『』【】（）()]/g, ' ')
+    .trim();
+}
+
+// ============================================================
+// TF-IDF風スコアリング（ライブラリ不使用）
+// ============================================================
+function scoreQA(query, qa) {
+  const qNorm = normalize(query);
+  const qTokens = qNorm.split(/\s+/).filter(t => t.length >= 1);
+
+  const targets = [
+    normalize(qa.question),
+    normalize(qa.answer),
+    qa.keywords.map(k => normalize(k)).join(' '),
+    normalize(qa.category)
+  ];
+  const allText = targets.join(' ');
+  const questionNorm = normalize(qa.question);
+
+  let score = 0;
+
+  // 1. キーワード完全マッチ
+  qa.keywords.forEach(kw => {
+    const kwNorm = normalize(kw);
+    if (qNorm.includes(kwNorm)) score += 0.25;
+    qTokens.forEach(t => {
+      if (kwNorm.includes(t) && t.length >= 2) score += 0.08;
+    });
+  });
+
+  // 2. 質問文マッチ
+  qTokens.forEach(t => {
+    if (t.length < 2) return;
+    if (questionNorm.includes(t)) score += 0.18;
+    if (allText.includes(t))      score += 0.06;
+  });
+
+  // 3. n-gram
+  for (let n = 3; n <= 6; n++) {
+    for (let i = 0; i <= qNorm.length - n; i++) {
+      const gram = qNorm.slice(i, i + n);
+      if (gram.trim().length < n) continue;
+      if (questionNorm.includes(gram)) score += 0.04 * (n / 3);
+      if (allText.includes(gram))      score += 0.015 * (n / 3);
+    }
+  }
+
+  // 4. 条文番号マッチ
+  const artMatch = qNorm.match(/第(\d+)条/);
+  if (artMatch) {
+    qa.articles.forEach(art => {
+      if (art.includes(artMatch[0])) score += 0.3;
+    });
+  }
+
+  return Math.min(score, 1.0);
+}
+
+// Q&A質問文とクエリの直接一致率（同スコア時のタイブレーカー用）
+function questionMatchRatio(query, qa) {
+  const qNorm = normalize(query);
+  const questionNorm = normalize(qa.question);
+  // クエリの文字がQ&Aの質問文に何文字含まれるか（文字単位）
+  let matched = 0;
+  for (let i = 0; i < qNorm.length; i++) {
+    if (questionNorm.includes(qNorm[i])) matched++;
+  }
+  return matched / Math.max(qNorm.length, 1);
+}
+
+// ============================================================
+// 法令条文スコアリング
+// ============================================================
+function scoreLaw(query, art) {
+  const qNorm = normalize(query);
+  const qTokens = qNorm.split(/\s+/).filter(t => t.length >= 1);
+  const allText = [
+    normalize(art.article),
+    normalize(art.title),
+    normalize(art.text),
+    art.keywords.map(k => normalize(k)).join(' '),
+    normalize(art.chapter)
+  ].join(' ');
+
+  let score = 0;
+
+  // キーワードマッチ
+  art.keywords.forEach(kw => {
+    const kwNorm = normalize(kw);
+    if (qNorm.includes(kwNorm)) score += 0.22;
+    qTokens.forEach(t => {
+      if (kwNorm.includes(t) && t.length >= 2) score += 0.07;
+    });
+  });
+
+  // タイトル・条文番号マッチ
+  qTokens.forEach(t => {
+    if (t.length < 2) return;
+    if (normalize(art.title).includes(t))   score += 0.2;
+    if (normalize(art.article).includes(t)) score += 0.15;
+    if (allText.includes(t))                score += 0.05;
+  });
+
+  // n-gram
+  for (let n = 3; n <= 6; n++) {
+    for (let i = 0; i <= qNorm.length - n; i++) {
+      const gram = qNorm.slice(i, i + n);
+      if (gram.trim().length < n) continue;
+      if (allText.includes(gram)) score += 0.012 * (n / 3);
+    }
+  }
+
+  // 条文番号直接指定
+  const artMatch = qNorm.match(/第(\d+)条/);
+  if (artMatch && art.article.includes(artMatch[0])) score += 0.4;
+
+  return Math.min(score, 1.0);
+}
+
+// ============================================================
+// 検索実行（Q&A + 法令原文 統合）
+// Q&Aを法令より優先して評価する
+// ============================================================
+const QA_BOOST   = 1.4;   // Q&Aスコアの優先係数（法令より高く評価）
+const LAW_BOOST  = 1.0;   // 法令スコアの係数（基準）
+const QA_MIN_TOP = 1;     // 上位N件中、Q&Aを最低何件は含める（条文番号指定時を除く）
+
+function searchKnowledge(query, topN = 3) {
+  const hasArticleNo = /第\d+条/.test(query);  // 条文番号直接指定の場合は法令優先例外
+
+  // Q&A検索（ブースト係数を掛けた実効スコアで比較）
+  const qaScored = QA_DATA.map(qa => ({
+    type:         'qa',
+    id:           qa.id,
+    qa,
+    rawScore:     scoreQA(query, qa),
+    score:        scoreQA(query, qa) * (hasArticleNo ? 1.0 : QA_BOOST)
+  }));
+
+  // 法令原文検索
+  const lawScored = LAW_ARTICLES.map(art => ({
+    type:         'law',
+    id:           art.id,
+    art,
+    rawScore:     scoreLaw(query, art),
+    score:        scoreLaw(query, art) * LAW_BOOST
+  }));
+
+  // 統合して複合ソート：
+  // 第1キー：スコア降順
+  // 第2キー（同スコア時）：Q&Aの質問文一致率降順（質問に近いQ&Aを優先）
+  const all = [...qaScored, ...lawScored];
+  all.sort((a, b) => {
+    const diff = b.score - a.score;
+    if (Math.abs(diff) > 0.001) return diff;  // スコアに差がある場合
+    // 同スコアの場合：Q&Aの質問文一致率で判定
+    const aRatio = a.type === 'qa' ? questionMatchRatio(query, a.qa) : 0;
+    const bRatio = b.type === 'qa' ? questionMatchRatio(query, b.qa) : 0;
+    return bRatio - aRatio;
+  });
+  const top = all.slice(0, topN);
+
+  // Q&Aが最低1件含まれるよう保証（条文番号指定時を除く）
+  if (!hasArticleNo && QA_MIN_TOP > 0) {
+    const hasQA = top.some(h => h.type === 'qa');
+    if (!hasQA) {
+      const bestQA = [...qaScored].sort((a,b) => b.score - a.score)[0];
+      if (bestQA && bestQA.rawScore > 0) {
+        top[top.length - 1] = bestQA;
+        top.sort((a, b) => b.score - a.score);
+      }
+    }
+  }
+
+  return top;
+}
+
+// ============================================================
+// パターン判定
+// ============================================================
+function classifyPattern(topScore) {
+  if (topScore >= SCORE_HIGH) return 'A';
+  if (topScore >= SCORE_MID)  return 'B';
+  return 'C';
+}
+
+// ============================================================
+// Claude API呼び出し
+// ============================================================
+async function callClaude(question, hits, pattern) {
+  const apiKey = getApiKey();
+
+  // ナレッジ＋法令原文を整形
+  let knowledgeBlock = '';
+  // 参照条文リスト（後でcitationに使う）
+  const citationArticles = [];
+
+  hits.forEach(h => {
+    if (h.type === 'qa') {
+      const qa = h.qa;
+      knowledgeBlock += `\n【Q&A: ${qa.id}】\nQ: ${qa.question}\nA: ${qa.answer}\n参照条文: ${qa.articles.join(', ')}\n`;
+      qa.articles.forEach(a => { if (!citationArticles.includes(a)) citationArticles.push(a); });
+    } else {
+      const art = h.art;
+      knowledgeBlock += `\n【法令: ${art.article}「${art.title}」】\n${art.text}\n`;
+      if (!citationArticles.includes(art.article)) citationArticles.push(art.article);
+    }
+  });
+
+  // パターンCは API呼び出し不要（固定テキスト返却）
+  if (pattern === 'C') {
+    return [{ type:'text', content:'本ナレッジベースの対応範囲外です。e-Gov法令検索（https://laws.e-gov.go.jp/law/359AC0000000086/）または専門家にご確認ください。' }];
+  }
+
+  const patternNote = pattern === 'B'
+    ? '\n※直接該当する条文はありませんが、関連する情報から回答します。末尾に「詳細は法令原文または専門家にご確認ください。」を付記してください。'
+    : '';
+
+  const systemPrompt = `あなたは電気通信事業法の専門アドバイザーです。
+質問者は企業の法務・コンプライアンス担当者です。
+
+以下のルールで回答してください：
+- 「です・ます」調で端的に回答する
+- 提供された参照情報の内容を必ず使って回答する
+- 参照情報に回答が含まれている場合は、その内容を正確に伝える
+- 根拠条文は「（第○条）」の形で文中に自然に示す
+- 300文字以内で簡潔にまとめる
+- 法的断定は避け「〜が原則です」「〜と解されます」等の表現を使う`;
+
+  const userMessage = `【質問】${question}${patternNote}
+
+【参照情報】
+${knowledgeBlock}
+
+上記の参照情報をもとに回答してください。`;
+
+  const useProxy = PROXY_URL && PROXY_URL.trim() !== '';
+  const endpoint = useProxy ? PROXY_URL : 'https://api.anthropic.com/v1/messages';
+  const headers  = useProxy
+    ? { 'Content-Type': 'application/json' }
+    : { 'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true' };
+
+  const resp = await fetch(endpoint, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 1000,
+      system: systemPrompt,
+      messages: [{ role: 'user', content: userMessage }]
+    })
+  });
+
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({}));
+    throw new Error(err.error?.message || `API Error ${resp.status}`);
+  }
+
+  const data = await resp.json();
+  const answerText = data.content[0].text.trim();
+
+  // プレーンテキストをsegments形式に変換
+  // 条文番号が含まれる位置を検出してcitationを挿入
+  const segments = [];
+  let remaining = answerText;
+
+  // 各参照条文を順番に探して分割
+  const sortedArts = citationArticles
+    .filter(a => remaining.includes(a.replace(/（.*）/,'')))
+    .sort((a, b) => remaining.indexOf(a.replace(/（.*）/,'')) - remaining.indexOf(b.replace(/（.*）/,'')));
+
+  if (sortedArts.length === 0) {
+    // 条文が本文中に見つからない場合：テキスト全体 + 末尾にcitation
+    segments.push({ type:'text', content: answerText });
+    citationArticles.forEach(a => segments.push({ type:'citation', article: a }));
+  } else {
+    // 条文番号の前後でテキストを分割してcitationを挿入
+    sortedArts.forEach(art => {
+      const artShort = art.replace(/（.*）/,'');
+      const idx = remaining.indexOf(artShort);
+      if (idx === -1) return;
+      // 条文より前のテキスト
+      const before = remaining.slice(0, idx + artShort.length);
+      if (before.trim()) segments.push({ type:'text', content: before });
+      segments.push({ type:'citation', article: art });
+      remaining = remaining.slice(idx + artShort.length);
+    });
+    if (remaining.trim()) segments.push({ type:'text', content: remaining });
+  }
+
+  return segments.length > 0 ? segments : [{ type:'text', content: answerText }];
+}
+
+// ============================================================
+// ヒット表示（Q&A / 法令原文 両対応）
+// ============================================================
+function renderHits(hits) {
+  const section = document.getElementById('hitsSection');
+  const list    = document.getElementById('hitsList');
+  section.style.display = 'block';
+  list.innerHTML = '';
+
+  hits.forEach((h, i) => {
+    const pct = Math.round(h.score * 100);
+    const div = document.createElement('div');
+    div.className = 'hit-card';
+
+    if (h.type === 'qa') {
+      const qa = h.qa;
+      div.innerHTML = `
+        <div class="hit-rank">${i+1}</div>
+        <div style="flex:1">
+          <div class="hit-q">📋 [Q&A ${qa.id}] ${qa.question}</div>
+          <div class="hit-meta">📁 ${qa.category} ｜ 📜 ${qa.articles.join(', ')} ｜ スコア: ${h.score.toFixed(3)}</div>
+          <div class="score-bar-wrap"><div class="score-bar" style="width:${Math.min(pct*2,100)}%"></div></div>
+        </div>`;
+    } else {
+      const art = h.art;
+      div.innerHTML = `
+        <div class="hit-rank" style="background:var(--red)">${i+1}</div>
+        <div style="flex:1">
+          <div class="hit-q">📜 [法令 ${art.id}] ${art.article}「${art.title}」</div>
+          <div class="hit-meta">📖 ${art.chapter} ｜ スコア: ${h.score.toFixed(3)}</div>
+          <div class="score-bar-wrap"><div class="score-bar" style="width:${Math.min(pct*2,100)}%; background:var(--red)"></div></div>
+        </div>`;
+    }
+    list.appendChild(div);
+  });
+}
+
+function toggleHits() {
+  const list = document.getElementById('hitsList');
+  list.classList.toggle('open');
+}
+
+// ============================================================
+// 回答ログ管理
+// ============================================================
+let logEntries = [];  // { id, time, question, pattern, topScore, answer, metaHtml }
+
+function nowStr() {
+  const d = new Date();
+  return `${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
+}
+
+function addLog(question, pattern, topScore, segments, hits) {
+  const qaHits  = hits.filter(h => h.type === 'qa');
+  const lawHits = hits.filter(h => h.type === 'law');
+
+  // メタHTML生成（参照条文のみ。参照Q&Aは別途アコーディオンで表示）
+  let metaHtml = '';
+  if (pattern !== 'C' && hits.length > 0) {
+    if (lawHits.length > 0)
+      metaHtml += `<span class="meta-item"><strong>参照条文：</strong>${lawHits.map(h=>h.art.article).join(', ')}</span>`;
+  } else {
+    metaHtml = '<span class="meta-item"><a href="https://laws.e-gov.go.jp/law/359AC0000000086/" target="_blank">📖 e-Gov 電気通信事業法</a></span>';
+  }
+
+  // 条文ソースマップ（article番号 → LAW_ARTICLESデータ）
+  const lawMap = {};
+  LAW_ARTICLES.forEach(la => { lawMap[la.article] = la; });
+  // Q&Aからも逆引きして補完
+  qaHits.forEach(h => {
+    h.qa.articles.forEach(artNo => {
+      const found = LAW_ARTICLES.find(la => la.article === artNo || la.article.startsWith(artNo));
+      if (found && !lawMap[found.article]) lawMap[found.article] = found;
+    });
+  });
+
+  const entry = {
+    id: Date.now(),
+    time: nowStr(),
+    question, pattern, topScore,
+    segments,   // [{type:'text',content:''} | {type:'citation',article:'第○条'}]
+    metaHtml,
+    lawMap,
+    qaHits: qaHits.map(h => h.qa)  // Q&AデータをentryにそのまM保持
+  };
+  logEntries.unshift(entry);
+  renderLogEntry(entry, true);
+  updateLogCount();
+
+  document.getElementById('logArea').style.display = 'block';
+}
+
+function renderLogEntry(entry, prepend = false) {
+  const list = document.getElementById('logList');
+  const patClass = { A:'pattern-a', B:'pattern-b', C:'pattern-c' }[entry.pattern];
+  const icon     = { A:'✅', B:'🔶', C:'❌' }[entry.pattern];
+  const label    = {
+    A: '回答',
+    B: '参考回答（関連情報より）',
+    C: '対応範囲外'
+  }[entry.pattern];
+
+  // segments → インライン条文ボックス付きHTMLに変換
+  const bodyHtml = buildSegmentsHtml(entry.segments || [], entry.lawMap || {}, entry.id);
+
+  const card = document.createElement('div');
+  card.className = `answer-card ${patClass}`;
+  card.dataset.id = entry.id;
+  card.innerHTML = `
+    <div class="card-header">
+      <span class="c-icon">${icon}</span>
+      <span class="c-label">${label}</span>
+      ${(entry.qaHits && entry.qaHits.length > 0)
+        ? `<span class="c-qa-badge">📋 Q&Aヒット: ${entry.qaHits.map(q=>q.id).join(' / ')}</span>`
+        : ''}
+      <span class="c-time">🕐 ${entry.time}</span>
+      <span class="c-score">スコア: ${entry.topScore.toFixed(3)}</span>
+    </div>
+    <div class="card-question">💬 ${escHtml(entry.question)}</div>
+    <div class="card-body">
+      <div class="segments-wrap" data-entry-id="${entry.id}">${bodyHtml}</div>
+      <div class="edit-hint">✏️ テキスト部分はクリックして直接編集できます</div>
+      <div class="card-meta">
+        ${entry.metaHtml}
+        <div class="card-actions">
+          <button class="btn-card" onclick="copyCard(this, ${entry.id})">📋 コピー</button>
+          <button class="btn-card del" onclick="deleteCard(${entry.id})">🗑 削除</button>
+        </div>
+      </div>
+      ${buildQaRefHtml(entry.qaHits || [], entry.id)}
+    </div>`;
+
+  if (prepend && list.firstChild) {
+    list.insertBefore(card, list.firstChild);
+  } else {
+    list.appendChild(card);
+  }
+}
+
+function escHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ============================================================
+// 参照Q&Aアコーディオン生成
+// ============================================================
+function buildQaRefHtml(qaList, entryId) {
+  if (!qaList || qaList.length === 0) return '';
+
+  const cards = qaList.map((qa, idx) => {
+    const cardId = `qaref-${entryId}-${idx}`;
+    return `
+      <div class="qa-ref-card" id="${cardId}">
+        <div class="qa-ref-header" onclick="toggleQaRef('${cardId}')">
+          <span class="qa-ref-id">${escHtml(qa.id)}</span>
+          <span class="qa-ref-q">${escHtml(qa.question)}</span>
+          <span class="qa-ref-toggle">▼</span>
+        </div>
+        <div class="qa-ref-body">
+          <div class="qa-ref-answer">${escHtml(qa.answer)}</div>
+          <div class="qa-ref-articles">
+            <strong>参照条文：</strong>${escHtml(qa.articles.join(' / '))}
+            　<strong>カテゴリ：</strong>${escHtml(qa.category)}
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+
+  return `
+    <div class="qa-ref-area">
+      <div class="qa-ref-label">📋 参照 Q&amp;A</div>
+      ${cards}
+    </div>`;
+}
+
+function toggleQaRef(cardId) {
+  const card = document.getElementById(cardId);
+  if (card) card.classList.toggle('open');
+}
+
+// ============================================================
+// segments → インライン引用ボックス付きHTML生成
+// ============================================================
+function buildSegmentsHtml(segments, lawMap, entryId) {
+  if (!segments || segments.length === 0) return '';
+  let citIdx = 0;
+
+  return segments.map(seg => {
+    if (seg.type === 'text') {
+      // テキストセグメント：改行・markdown簡易変換して編集可能divに
+      const html = simpleMarkdown(escHtml(seg.content || ''));
+      return `<div class="text-segment" contenteditable="true" spellcheck="false"
+                   onblur="saveSegmentEdit(this, ${entryId})">${html}</div>`;
+
+    } else if (seg.type === 'citation') {
+      const artNo = (seg.article || '').trim();
+      const src = lawMap[artNo] || Object.values(lawMap).find(la =>
+        la.article.startsWith(artNo) || artNo.startsWith(la.article.replace(/（.*）/,''))
+      );
+      const boxId = `cit-${entryId}-${citIdx++}`;
+      if (!src) {
+        // 条文データなし：ラベルのみ表示
+        return `<div class="citation-box inline-citation">
+          <div class="citation-header">
+            <span class="citation-label">📜 ${escHtml(artNo)}</span>
+            <span class="citation-title">（条文データなし）</span>
+          </div></div>`;
+      }
+      const preview = src.text.replace(/\n/g,' ').slice(0, 90) + (src.text.length > 90 ? '…' : '');
+      return `<div class="citation-box inline-citation" id="${boxId}">
+        <div class="citation-header" onclick="toggleCitation('${boxId}')">
+          <span class="citation-label">📜 ${escHtml(src.article)}</span>
+          <span class="citation-title">「${escHtml(src.title)}」</span>
+          <span class="citation-toggle">▼</span>
+        </div>
+        <div class="citation-preview">${escHtml(preview)}</div>
+        <div class="citation-text">${escHtml(src.text)}</div>
+      </div>`;
+    }
+    return '';
+  }).join('');
+}
+
+// Markdownの簡易変換（**bold**・改行・箇条書き）
+function simpleMarkdown(html) {
+  return html
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/^- (.+)$/gm, '<span class="md-bullet">・$1</span>')
+    .replace(/\n/g, '<br>');
+}
+
+function toggleCitation(boxId) {
+  const box = document.getElementById(boxId);
+  if (box) box.classList.toggle('open');
+}
+
+// テキストセグメントの編集内容をentryに保存
+function saveSegmentEdit(el, entryId) {
+  const entry = logEntries.find(e => e.id === entryId);
+  if (!entry || !entry.segments) return;
+  // 編集されたtextセグメントを順番に同期
+  const wrap = el.closest('.segments-wrap');
+  if (!wrap) return;
+  const textEls = wrap.querySelectorAll('.text-segment');
+  let tIdx = 0;
+  entry.segments.forEach(seg => {
+    if (seg.type === 'text' && textEls[tIdx]) {
+      seg.content = textEls[tIdx].innerText;
+      tIdx++;
+    }
+  });
+}
+
+function copyCard(btn, id) {
+  const entry = logEntries.find(e => e.id === id);
+  if (!entry) return;
+  // segments からテキスト部分と条文ラベルを順番に結合
+  let answerText = '';
+  (entry.segments || []).forEach(seg => {
+    if (seg.type === 'text') {
+      answerText += (seg.content || '') + '\n';
+    } else if (seg.type === 'citation') {
+      answerText += `\n【参照条文: ${seg.article}】\n`;
+    }
+  });
+  const text = `【質問】\n${entry.question}\n\n【回答】\n${answerText.trim()}`;
+  navigator.clipboard.writeText(text).then(() => {
+    btn.textContent = '✅ コピー完了';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = '📋 コピー'; btn.classList.remove('copied'); }, 1800);
+  });
+}
+
+function deleteCard(id) {
+  logEntries = logEntries.filter(e => e.id !== id);
+  const card = document.querySelector(`.answer-card[data-id="${id}"]`);
+  if (card) {
+    card.style.opacity = '0';
+    card.style.transform = 'translateY(-6px)';
+    card.style.transition = 'opacity 0.25s, transform 0.25s';
+    setTimeout(() => card.remove(), 250);
+  }
+  updateLogCount();
+  if (logEntries.length === 0) document.getElementById('logArea').style.display = 'none';
+}
+
+function clearAllLogs() {
+  if (!confirm('すべての回答履歴を削除してよろしいですか？')) return;
+  logEntries = [];
+  document.getElementById('logList').innerHTML = '';
+  document.getElementById('logArea').style.display = 'none';
+}
+
+function updateLogCount() {
+  document.getElementById('logCount').textContent =
+    logEntries.length > 0 ? `${logEntries.length}件` : '';
+}
+
+// ============================================================
+// メイン検索フロー
+// ============================================================
+async function search() {
+  const question = document.getElementById('questionInput').value.trim();
+  if (!question) { alert('質問を入力してください。'); return; }
+
+  const apiKey = getApiKey();
+  const proxyMode = PROXY_URL && PROXY_URL.trim() !== '';
+  const embeddedMode = EMBEDDED_API_KEY && EMBEDDED_API_KEY.trim() !== '';
+  if (!proxyMode && !embeddedMode && !apiKey) {
+    alert('APIキーを設定してください。');
+    document.getElementById('apiKeyInput').focus();
+    return;
+  }
+
+  // UI状態
+  document.getElementById('searchBtn').disabled = true;
+  document.getElementById('loading').classList.add('show');
+  document.getElementById('hitsSection').style.display = 'none';
+
+  try {
+    // ① RAG検索
+    const hits    = searchKnowledge(question, 3);
+    const topScore = hits[0]?.score ?? 0;
+    const pattern  = classifyPattern(topScore);
+
+    // ② ヒット表示
+    renderHits(hits);
+
+    // ③ Claude API（segments配列を返す）
+    const segments = await callClaude(question, hits, pattern);
+
+    // ④ 回答ログに追加
+    addLog(question, pattern, topScore, segments, hits);
+
+    // スクロール（最新カードへ）
+    document.getElementById('logArea').scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  } catch(e) {
+    alert('エラーが発生しました：\n' + e.message);
+    console.error(e);
+  } finally {
+    document.getElementById('searchBtn').disabled = false;
+    document.getElementById('loading').classList.remove('show');
+  }
+}
+</script>
+</body>
+</html>
