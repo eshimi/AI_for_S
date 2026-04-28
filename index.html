@@ -2059,7 +2059,8 @@ function getApiKey() {
 // テキスト正規化
 // ============================================================
 function normalize(text) {
-  return text
+  if (text === undefined || text === null) return '';
+  return String(text)
     .toLowerCase()
     .replace(/[　 \t\r\n]+/g, ' ')
     .replace(/[・。、，．？！「」『』【】（）()]/g, ' ')
@@ -2518,7 +2519,8 @@ function renderLogEntry(entry, prepend = false) {
 }
 
 function escHtml(str) {
-  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  if (str === undefined || str === null) return '';
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
 // ============================================================
@@ -2603,7 +2605,8 @@ function buildSegmentsHtml(segments, lawMap, entryId) {
 
 // Markdownの簡易変換（**bold**・改行・箇条書き）
 function simpleMarkdown(html) {
-  return html
+  if (!html) return '';
+  return String(html)
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
     .replace(/^- (.+)$/gm, '<span class="md-bullet">・$1</span>')
     .replace(/\n/g, '<br>');
